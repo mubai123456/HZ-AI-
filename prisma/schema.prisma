@@ -1,0 +1,482 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum TaskStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+enum AssetKind {
+  INPUT
+  OUTPUT
+}
+
+enum SyncStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum MaterialType {
+  VIDEO
+  IMAGE
+}
+
+enum MaterialStatus {
+  UPLOADING
+  PROCESSING
+  AVAILABLE
+  CLAIMED
+  OFF_SHELF
+  ARCHIVED
+}
+
+enum VariantKind {
+  ORIGINAL
+  PREVIEW_WATERMARK
+  POSTER
+  THUMBNAIL
+}
+
+enum ClaimStatus {
+  ACTIVE
+  RESET_BY_ADMIN
+  DELIVERY_FAILED
+}
+
+enum AuditAction {
+  UPLOAD
+  COMPLETE
+  CLAIM
+  RESET
+  OFF_SHELF
+  QUOTA_CHANGE
+}
+
+enum PromptTemplateScopeMode {
+  GLOBAL
+  LIMITED
+}
+
+enum PromptTemplateMediaType {
+  IMAGE
+  VIDEO
+}
+
+model User {
+  id                   String            @id @default(cuid())
+  username             String            @unique
+  displayName          String
+  role                 UserRole          @default(USER)
+  passwordHash         String?
+  active               Boolean           @default(true)
+  deletedAt            DateTime?
+  lastLoginAt          DateTime?
+  dailyClaimLimit      Int               @default(3)
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  tasks                Task[]
+  syncLogs             SyncLog[]         @relation("SyncLogActor")
+  createdMaterials     Material[]        @relation("MaterialUploader")
+  exclusiveMaterials   Material[]        @relation("MaterialExclusiveOwner")
+  claims               MaterialClaim[]
+  resetClaims          MaterialClaim[]   @relation("MaterialClaimResetBy")
+  quotaDays            UserDailyQuota[]
+  auditLogs            AuditLog[]        @relation("AuditActor")
+  promptTemplateFavorites PromptTemplateFavorite[]
+  promptTemplateRecentUses PromptTemplateRecentUse[]
+}
+
+model App {
+  id                   String      @id @default(cuid())
+  code                 String      @unique
+  name                 String
+  description          String
+  provider             String
+  providerAppId        String
+  enabled              Boolean     @default(true)
+  shareResults         Boolean     @default(false)
+  estimatedPriceFen    Int         @default(0)
+  formSchemaJson       Json
+  requestMappingJson   Json
+  defaultParamsJson    Json
+  syncMappingJson      Json
+  runninghubAllowedChannelCodesJson Json?
+  iconUrl              String?
+  iconBgColor          String?
+  category             String?
+  coverPoster          String?
+  showcaseImagesJson   Json?
+  authorName           String?
+  authorAvatar         String?
+  badgeLabel           String?
+  sortOrder            Int         @default(0)
+  viewCount            Int         @default(0)
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+  tasks                Task[]
+  tags                 AppTagLink[]
+  promptTemplateScopes PromptTemplateAppScope[]
+}
+
+model AppTag {
+  id        String       @id @default(cuid())
+  name      String       @unique
+  color     String       @default("#2563EB")
+  sortOrder Int          @default(0)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  apps      AppTagLink[]
+}
+
+model AppTagLink {
+  appId  String
+  tagId  String
+  app    App    @relation(fields: [appId], references: [id], onDelete: Cascade)
+  tag    AppTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([appId, tagId])
+  @@index([tagId])
+}
+
+model Task {
+  id                   String      @id @default(cuid())
+  siteTaskNo           String      @unique
+  taskNo               String      @unique
+  title                String?
+  status               TaskStatus  @default(QUEUED)
+  providerStatus       String?
+  providerTaskId       String?
+  runninghubChannelCode String?
+  runninghubChannelName String?
+  providerResultUrl    String?
+  providerErrorMessage String?
+  syncStatus           SyncStatus  @default(PENDING)
+  syncErrorMessage     String?
+  queuePosition        Int?
+  prompt               String?
+  estimatedPriceFenSnapshot Int?
+  paramsJson           Json?
+  resultJson           Json?
+  usageJson            Json?
+  retryCount           Int         @default(0)
+  maxRetries           Int         @default(3)
+  appId                String
+  createdById          String
+  feishuRecordId       String?
+  createdAt            DateTime    @default(now())
+  startedAt            DateTime?
+  completedAt          DateTime?
+  updatedAt            DateTime    @updatedAt
+  app                  App         @relation(fields: [appId], references: [id])
+  createdBy            User        @relation(fields: [createdById], references: [id])
+  assets               TaskAsset[]
+  syncLogs             SyncLog[]
+
+  @@index([status, createdById])
+  @@index([syncStatus])
+}
+
+model TaskAsset {
+  id         String    @id @default(cuid())
+  taskId      String
+  kind        AssetKind
+  name        String
+  mimeType    String?
+  url         String?
+  storageKey  String?
+  sourceSlot  String?
+  width       Int?
+  height      Int?
+  createdAt   DateTime  @default(now())
+  task        Task      @relation(fields: [taskId], references: [id])
+}
+
+model SyncLog {
+  id         String      @id @default(cuid())
+  taskId      String
+  actorId     String?
+  status      SyncStatus  @default(PENDING)
+  target      String
+  message     String?
+  payloadJson Json?
+  createdAt   DateTime    @default(now())
+  task        Task        @relation(fields: [taskId], references: [id])
+  actor       User?       @relation("SyncLogActor", fields: [actorId], references: [id])
+}
+
+model PromptTag {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  color     String   @default("#6366f1")
+  createdAt DateTime @default(now())
+}
+
+model PromptTemplateCategory {
+  id        String           @id @default(cuid())
+  name      String           @unique
+  color     String           @default("#2563eb")
+  sortOrder Int              @default(0)
+  enabled   Boolean          @default(true)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  templates PromptTemplate[]
+}
+
+model PromptTemplate {
+  id              String                  @id @default(cuid())
+  appCode         String?
+  categoryId      String?
+  name            String
+  description     String?
+  coverImageUrl   String?
+  sampleMediaType PromptTemplateMediaType @default(IMAGE)
+  sampleMediaUrl  String?
+  samplePosterUrl String?
+  templatePrompt  String
+  tags            String                  @default("")
+  usageCount      Int                     @default(0)
+  enabled         Boolean                 @default(true)
+  scopeMode       PromptTemplateScopeMode @default(GLOBAL)
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  category        PromptTemplateCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  appScopes       PromptTemplateAppScope[]
+  favorites       PromptTemplateFavorite[]
+  recentUses      PromptTemplateRecentUse[]
+
+  @@index([enabled, usageCount])
+  @@index([scopeMode])
+  @@index([categoryId])
+}
+
+model PromptTemplateAppScope {
+  templateId String
+  appCode    String
+  createdAt  DateTime       @default(now())
+  template   PromptTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  app        App            @relation(fields: [appCode], references: [code], onDelete: Cascade)
+
+  @@id([templateId, appCode])
+  @@index([appCode])
+}
+
+model PromptTemplateFavorite {
+  userId     String
+  templateId String
+  createdAt  DateTime       @default(now())
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  template   PromptTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@id([userId, templateId])
+  @@index([templateId])
+}
+
+model PromptTemplateRecentUse {
+  userId     String
+  templateId String
+  lastUsedAt DateTime       @default(now())
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  template   PromptTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@id([userId, templateId])
+  @@index([lastUsedAt])
+  @@index([templateId])
+}
+
+model FeishuSettings {
+  id             String   @id @default("default")
+  feishuAppToken String   @default("")
+  feishuTableId  String   @default("")
+  columnMappings Json     @default("[]")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model SiteSettings {
+  id                  String   @id @default("default")
+  siteName            String   @default("")
+  siteDescription     String   @default("")
+  workspaceLabel      String   @default("")
+  adminWorkspaceLabel String   @default("")
+  themeColor          String   @default("#0066DD")
+  navLabelsJson       String   @default("{}")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model IntegrationSettings {
+  id                       String   @id @default("default")
+  runninghubBaseUrl        String   @default("")
+  runninghubDefaultWebappId String  @default("")
+  runninghubChannelsJson   Json?
+  feishuBaseUrl            String   @default("")
+  taskMaxConcurrency       Int      @default(5)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+}
+
+model AppCategory {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  sortOrder Int      @default(0)
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model AppBanner {
+  id        String   @id @default(cuid())
+  title     String
+  subtitle  String?
+  imageUrl  String?
+  linkUrl   String?
+  linkLabel String?
+  bgFrom    String   @default("#EFF6FF")
+  bgTo      String   @default("#EDE9FE")
+  sortOrder Int      @default(0)
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Material {
+  id               String             @id @default(cuid())
+  title            String
+  description      String?
+  materialType     MaterialType
+  status           MaterialStatus     @default(UPLOADING)
+  sourceFilename   String
+  checksumSha256   String             @unique
+  bucket           String
+  objectKey        String
+  fileSizeBytes    Int
+  mimeType         String?
+  width            Int?
+  height           Int?
+  durationMs       Int?
+  previewReady     Boolean            @default(false)
+  exclusiveOwnerId String?
+  claimedAt        DateTime?
+  batchNo          String?
+  createdById      String
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  deletedAt        DateTime?
+  createdBy        User               @relation("MaterialUploader", fields: [createdById], references: [id])
+  exclusiveOwner   User?              @relation("MaterialExclusiveOwner", fields: [exclusiveOwnerId], references: [id])
+  variants         MaterialVariant[]
+  tags             MaterialTagLink[]
+  claims           MaterialClaim[]
+  auditLogs        AuditLog[]
+
+  @@index([status, materialType, createdAt])
+  @@index([exclusiveOwnerId])
+}
+
+model MaterialVariant {
+  id            String      @id @default(cuid())
+  materialId    String
+  kind          VariantKind
+  bucket        String
+  objectKey     String
+  mimeType      String?
+  fileSizeBytes Int?
+  width         Int?
+  height        Int?
+  durationMs    Int?
+  createdAt     DateTime    @default(now())
+  material      Material    @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  @@index([materialId, kind])
+}
+
+model MaterialTag {
+  id        String            @id @default(cuid())
+  name      String            @unique
+  color     String?
+  createdAt DateTime          @default(now())
+  links     MaterialTagLink[]
+}
+
+model MaterialTagLink {
+  materialId String
+  tagId      String
+  material   Material    @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  tag        MaterialTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([materialId, tagId])
+}
+
+model MaterialClaim {
+  id                String        @id @default(cuid())
+  materialId        String
+  userId            String
+  status            ClaimStatus   @default(ACTIVE)
+  claimRequestId    String?       @unique
+  signedUrlIssuedAt DateTime?
+  signedUrlExpireAt DateTime?
+  resetById         String?
+  resetReason       String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  material          Material      @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  user              User          @relation(fields: [userId], references: [id])
+  resetBy           User?         @relation("MaterialClaimResetBy", fields: [resetById], references: [id])
+  publishLinks      MaterialPublishLink[]
+  auditLogs         AuditLog[]
+
+  @@index([materialId, status])
+  @@index([userId, createdAt])
+}
+
+model MaterialPublishLink {
+  id         String        @id @default(cuid())
+  claimId    String
+  url        String
+  platform   String?
+  note       String?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  claim      MaterialClaim @relation(fields: [claimId], references: [id], onDelete: Cascade)
+
+  @@index([claimId, createdAt])
+}
+
+model UserDailyQuota {
+  userId        String
+  quotaDate     DateTime
+  limitSnapshot Int
+  usedCount     Int      @default(0)
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, quotaDate])
+}
+
+model AuditLog {
+  id         String      @id @default(cuid())
+  actorId    String?
+  materialId String?
+  claimId    String?
+  action     AuditAction
+  payloadJson Json?
+  createdAt  DateTime    @default(now())
+  actor      User?       @relation("AuditActor", fields: [actorId], references: [id])
+  material   Material?   @relation(fields: [materialId], references: [id], onDelete: SetNull)
+  claim      MaterialClaim? @relation(fields: [claimId], references: [id], onDelete: SetNull)
+
+  @@index([action, createdAt])
+}

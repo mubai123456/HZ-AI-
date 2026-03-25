@@ -1,0 +1,244 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const {
+  getCurrentSessionMock,
+  getResolvedIntegrationSettingsMock,
+  getResolvedFeishuSyncSettingsMock,
+  saveIntegrationSettingsMock,
+  upsertMock,
+  backfillMock,
+  resolveFeishuSyncConfigMock,
+  mappingRecordToEntriesMock,
+  normalizeFeishuColumnMappingsMock,
+} = vi.hoisted(() => ({
+  getCurrentSessionMock: vi.fn(),
+  getResolvedIntegrationSettingsMock: vi.fn(),
+  getResolvedFeishuSyncSettingsMock: vi.fn(),
+  saveIntegrationSettingsMock: vi.fn(),
+  upsertMock: vi.fn(),
+  backfillMock: vi.fn(),
+  resolveFeishuSyncConfigMock: vi.fn(),
+  mappingRecordToEntriesMock: vi.fn(),
+  normalizeFeishuColumnMappingsMock: vi.fn(),
+}));
+
+vi.mock("@/lib/session", () => ({
+  getCurrentSession: getCurrentSessionMock,
+}));
+
+vi.mock("@/lib/settings", () => ({
+  getResolvedIntegrationSettings: getResolvedIntegrationSettingsMock,
+  getResolvedFeishuSyncSettings: getResolvedFeishuSyncSettingsMock,
+  saveIntegrationSettings: saveIntegrationSettingsMock,
+  integrationSettingsUpdateSchema: {
+    parse: (input: unknown) => input,
+  },
+}));
+
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    feishuSettings: {
+      upsert: upsertMock,
+    },
+  },
+}));
+
+vi.mock("@/lib/feishu-sync-jobs", () => ({
+  backfillFeishuSyncForTasks: backfillMock,
+}));
+
+vi.mock("@/lib/feishu-sync", () => ({
+  resolveFeishuSyncConfig: resolveFeishuSyncConfigMock,
+  mappingRecordToEntries: mappingRecordToEntriesMock,
+  normalizeFeishuColumnMappings: normalizeFeishuColumnMappingsMock,
+}));
+
+vi.mock("@/lib/env", () => ({
+  env: {
+    FEISHU_APP_TOKEN: "env-app-token",
+    FEISHU_TABLE_ID: "env-table-id",
+    FEISHU_APP_SECRET: "env-secret",
+  },
+}));
+
+import { GET, PUT } from "@/app/api/internal/admin/settings/integrations/route";
+
+describe("admin integrations settings route", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns merged integration settings", async () => {
+    getCurrentSessionMock.mockResolvedValue({ sub: "admin-1", role: "ADMIN" });
+    getResolvedIntegrationSettingsMock.mockResolvedValue({
+      runninghubBaseUrl: "https://rh.example.com",
+      runninghubDefaultWebappId: "webapp-1",
+      runninghubChannels: [
+        {
+          code: "consumer",
+          name: "消费级 API",
+          apiKeyEnvName: "RUNNINGHUB_API_KEY",
+          concurrencyLimit: 5,
+          priority: 1,
+          enabled: true,
+        },
+      ],
+      feishuBaseUrl: "https://open.feishu.cn",
+    });
+    getResolvedFeishuSyncSettingsMock.mockResolvedValue({
+      feishuAppToken: "db-app-token",
+      feishuTableId: "db-table-id",
+      columnMappings: [{ taskField: "taskNo", feishuColumn: "Task Number" }],
+    });
+    resolveFeishuSyncConfigMock.mockReturnValue({
+      target: {
+        appToken: "db-app-token",
+        tableId: "db-table-id",
+      },
+      globalMapping: { taskNo: "Task Number" },
+    });
+    mappingRecordToEntriesMock.mockReturnValue([{ taskField: "taskNo", feishuColumn: "Task Number" }]);
+
+    const response = await GET();
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.runninghubBaseUrl).toBe("https://rh.example.com");
+    expect(data.runninghubChannels).toHaveLength(1);
+    expect(data.feishuAppToken).toBe("db-app-token");
+    expect(data.columnMappings).toEqual([{ taskField: "taskNo", feishuColumn: "Task Number" }]);
+  });
+
+  it("persists integration settings with structured mappings and triggers backfill", async () => {
+    getCurrentSessionMock.mockResolvedValue({ sub: "admin-1", role: "ADMIN" });
+    saveIntegrationSettingsMock.mockResolvedValue(undefined);
+    normalizeFeishuColumnMappingsMock.mockReturnValue({
+      taskNo: "Task Number",
+      status: "Task Status",
+      promptTemplateName: "Prompt Template",
+    });
+    mappingRecordToEntriesMock.mockReturnValue([
+      { taskField: "taskNo", feishuColumn: "Task Number" },
+      { taskField: "status", feishuColumn: "Task Status" },
+      { taskField: "promptTemplateName", feishuColumn: "Prompt Template" },
+    ]);
+    upsertMock.mockResolvedValue(undefined);
+    backfillMock.mockResolvedValue({ processed: 3 });
+    getResolvedIntegrationSettingsMock.mockResolvedValue({
+      runninghubBaseUrl: "https://rh.example.com",
+      runninghubDefaultWebappId: "webapp-1",
+      runninghubChannels: [
+        {
+          code: "consumer",
+          name: "消费级 API",
+          apiKeyEnvName: "RUNNINGHUB_API_KEY",
+          concurrencyLimit: 5,
+          priority: 1,
+          enabled: true,
+        },
+        {
+          code: "enterprise",
+          name: "企业级 API",
+          apiKeyEnvName: "RUNNINGHUB_API_KEY_ENTERPRISE",
+          concurrencyLimit: 100,
+          priority: 2,
+          enabled: true,
+        },
+      ],
+      feishuBaseUrl: "https://open.feishu.cn",
+    });
+    getResolvedFeishuSyncSettingsMock.mockResolvedValue({
+      feishuAppToken: "db-app-token",
+      feishuTableId: "db-table-id",
+      columnMappings: [
+        { taskField: "taskNo", feishuColumn: "Task Number" },
+        { taskField: "status", feishuColumn: "Task Status" },
+        { taskField: "promptTemplateName", feishuColumn: "Prompt Template" },
+      ],
+    });
+
+    const response = await PUT(
+      new Request("http://localhost/api/internal/admin/settings/integrations", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          runninghubBaseUrl: "https://rh.example.com",
+          runninghubDefaultWebappId: "webapp-1",
+          runninghubChannels: [
+            {
+              code: "consumer",
+              name: "消费级 API",
+              apiKeyEnvName: "RUNNINGHUB_API_KEY",
+              concurrencyLimit: 5,
+              priority: 1,
+              enabled: true,
+            },
+            {
+              code: "enterprise",
+              name: "企业级 API",
+              apiKeyEnvName: "RUNNINGHUB_API_KEY_ENTERPRISE",
+              concurrencyLimit: 100,
+              priority: 2,
+              enabled: true,
+            },
+          ],
+          feishuBaseUrl: "https://open.feishu.cn",
+          feishuAppToken: "db-app-token",
+          feishuTableId: "db-table-id",
+          columnMappings: [
+            { taskField: "taskNo", feishuColumn: "Task Number" },
+            { taskField: "status", feishuColumn: "Task Status" },
+            { taskField: "promptTemplateName", feishuColumn: "Prompt Template" },
+          ],
+        }),
+      }),
+    );
+    const data = await response.json();
+
+    expect(saveIntegrationSettingsMock).toHaveBeenCalledWith({
+      runninghubBaseUrl: "https://rh.example.com",
+      runninghubDefaultWebappId: "webapp-1",
+      runninghubChannels: [
+        {
+          code: "consumer",
+          name: "消费级 API",
+          apiKeyEnvName: "RUNNINGHUB_API_KEY",
+          concurrencyLimit: 5,
+          priority: 1,
+          enabled: true,
+        },
+        {
+          code: "enterprise",
+          name: "企业级 API",
+          apiKeyEnvName: "RUNNINGHUB_API_KEY_ENTERPRISE",
+          concurrencyLimit: 100,
+          priority: 2,
+          enabled: true,
+        },
+      ],
+      feishuBaseUrl: "https://open.feishu.cn",
+      feishuAppToken: "db-app-token",
+      feishuTableId: "db-table-id",
+      columnMappings: [
+        { taskField: "taskNo", feishuColumn: "Task Number" },
+        { taskField: "status", feishuColumn: "Task Status" },
+        { taskField: "promptTemplateName", feishuColumn: "Prompt Template" },
+      ],
+    });
+    expect(normalizeFeishuColumnMappingsMock).toHaveBeenCalledWith(
+      [
+        { taskField: "taskNo", feishuColumn: "Task Number" },
+        { taskField: "status", feishuColumn: "Task Status" },
+        { taskField: "promptTemplateName", feishuColumn: "Prompt Template" },
+      ],
+      expect.any(Object),
+    );
+    expect(upsertMock).toHaveBeenCalled();
+    expect(backfillMock).toHaveBeenCalledWith({
+      actorId: "admin-1",
+      mode: "ALL",
+    });
+    expect(response.status).toBe(200);
+    expect(data.ok).toBe(true);
+  });
+});

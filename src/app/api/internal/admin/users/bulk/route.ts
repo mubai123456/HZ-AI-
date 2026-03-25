@@ -1,0 +1,36 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+
+import { bulkOperateUsers } from "@/lib/db/users";
+import { getCurrentSession } from "@/lib/session";
+
+const bulkSchema = z.object({
+  ids: z.array(z.string().min(1)).min(1),
+  action: z.discriminatedUnion("type", [
+    z.object({ type: z.literal("setActive"), active: z.boolean() }),
+    z.object({ type: z.literal("setRole"), role: z.enum(["USER", "ADMIN"]) }),
+    z.object({ type: z.literal("setDailyClaimLimit"), dailyClaimLimit: z.number().int().min(0).max(100) }),
+    z.object({ type: z.literal("delete") }),
+  ]),
+});
+
+export async function POST(request: Request) {
+  const session = await getCurrentSession();
+  if (!session || session.role !== "ADMIN") {
+    return NextResponse.json({ error: "无权限访问" }, { status: 403 });
+  }
+
+  const body = await request.json().catch(() => null);
+  const parsed = bulkSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: "批量操作参数不正确" }, { status: 400 });
+  }
+
+  const result = await bulkOperateUsers({
+    ids: parsed.data.ids,
+    action: parsed.data.action,
+    operatorId: session.sub,
+  });
+
+  return NextResponse.json(result);
+}
