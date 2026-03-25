@@ -15,7 +15,14 @@ export default async function TasksPage() {
     redirect("/apps");
   }
 
-  const tasks = await getTasksForUser(session!.role, session!.sub, { limit: 100 });
+  let tasks: Awaited<ReturnType<typeof getTasksForUser>> = [];
+
+  try {
+    tasks = await getTasksForUser(session!.role, session!.sub, { limit: 100 });
+  } catch (error) {
+    console.error("[tasks] Failed to load task list.", error);
+  }
+
   const total = tasks.length;
   const running = tasks.filter((task) => task.status === "RUNNING").length;
   const queued = tasks.filter((task) => task.status === "QUEUED").length;

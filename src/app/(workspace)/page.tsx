@@ -8,12 +8,44 @@ import { SurfaceCard } from "@/components/surface-card";
 import { getEnabledAppsWithStats } from "@/lib/db/apps";
 import { getDashboardSummary } from "@/lib/db/tasks";
 import { getCurrentSession } from "@/lib/session";
+import type { DashboardSummary } from "@/lib/types";
+
+function buildEmptyDashboardSummary(isAdmin: boolean): DashboardSummary {
+  const stats = [
+    { label: "总任务", value: "0", trend: "暂无" },
+    { label: "运行中", value: "0", trend: "空闲" },
+    { label: "排队中", value: "0", trend: "正常" },
+    { label: "成功率", value: "0%", trend: "暂无" },
+  ];
+
+  if (isAdmin) {
+    stats.push({ label: "同步异常", value: "0", trend: "正常" });
+  }
+
+  return {
+    stats,
+    recentTasks: [],
+    alerts: [],
+  };
+}
 
 export default async function DashboardPage() {
   const session = await getCurrentSession();
   const isAdmin = session!.role === "ADMIN";
-  const summary = await getDashboardSummary(session!.role, session!.sub);
-  const apps = await getEnabledAppsWithStats();
+  let summary = buildEmptyDashboardSummary(isAdmin);
+  let apps: Awaited<ReturnType<typeof getEnabledAppsWithStats>> = [];
+
+  try {
+    summary = await getDashboardSummary(session!.role, session!.sub);
+  } catch (error) {
+    console.error("[dashboard] Failed to load summary.", error);
+  }
+
+  try {
+    apps = await getEnabledAppsWithStats();
+  } catch (error) {
+    console.error("[dashboard] Failed to load enabled apps.", error);
+  }
 
   return (
     <div className="space-y-6">
