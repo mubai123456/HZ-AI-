@@ -5,6 +5,9 @@ import { ShellWrapper } from "@/components/shell-wrapper";
 import { getResolvedSiteSettings } from "@/lib/settings";
 import { getCurrentSession } from "@/lib/session";
 
+// Workspace pages depend on session + database state and should never be prerendered during build.
+export const dynamic = "force-dynamic";
+
 export default async function WorkspaceLayout({
   children,
 }: Readonly<{

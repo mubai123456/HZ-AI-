@@ -1255,6 +1255,20 @@
 
 - 用真实案例图走一遍后台新增/排序/删除，再到前台详情页确认展示节奏
 - 如果后续要支持案例图文案，再单独扩展数据结构，不和本轮只存 URL 的方案混做
+## 2026-03-25 16:10:00
+
+- 修复 Vercel 登录热修复
+  - 新增 `src/lib/default-login-accounts.ts`，统一维护 `admin / ops.a / design.c` 默认账号定义。
+  - `src/lib/auth.ts` 增加默认账号自修复逻辑：当线上库缺账号或默认密码哈希漂移时，输入正确默认密码会自动补齐账号或修复哈希，再继续正常登录。
+  - 移除 `src/app/login/page.tsx` 登录页底部的默认账号展示文案，避免公开暴露账号密码。
+- 补充并通过定向验证：
+  - `npm run test -- src/lib/auth.test.ts`
+
+下一步：
+
+- 在实际 Vercel 环境用 `admin / admin123`、`ops.a / ops123`、`design.c / design123` 各回归一次登录。
+- 如后续准备取消默认账号能力，再把 `src/lib/default-login-accounts.ts` 改成纯初始化脚本入口，不再参与运行时登录自修复。
+
 ## 2026-03-24 23:33:00
 
 - 复查应用展示配置改版后，发现前台应用列表卡片仍在消费旧的 `iconUrl / iconBgColor` 字段。
@@ -1295,3 +1309,33 @@
 下一步：
 
 - 在真实后台页面手工验证批量上传、URL 添加和 100 张上限提示是否符合预期。
+## 2026-03-25 17:07:51
+
+- 复现并定位了生产环境概览页报错：`/admin` 稳定落入 Server Components 错误边界，`/` 与 `/tasks` 存在同类风险。
+- 已为工作台首页和任务中心增加页面级数据兜底；为系统概览 `getAdminOverview` 增加整体回退逻辑，确保统计查询失败时仍能打开页面。
+- 新增并通过两条回归测试：
+  - `src/app/(workspace)/page.test.tsx`
+  - `src/lib/db/admin.test.ts`
+- 本地验证已通过：
+  - `npx vitest run "src/app/(workspace)/page.test.tsx" src/lib/db/admin.test.ts`
+  - `npx eslint "src/app/(workspace)/page.tsx" "src/app/(workspace)/page.test.tsx" "src/app/(workspace)/tasks/page.tsx" "src/lib/db/admin.ts" "src/lib/db/admin.test.ts"`
+  - `node node_modules/next/dist/bin/next build`
+- 已将修复推送到 Vercel 发布分支 `codex/github-publish-1-13`，提交为 `f9b0a70 Add resilient fallbacks for production overview pages`。
+
+下一步：
+
+- 等 Vercel 部署完全切换后，按顺序人工回归 `/login`、`/`、`/admin`、`/tasks` 四个页面。
+- 继续核对生产数据库枚举和 schema，确认是否存在需要单独补迁移的漂移项。
+## 2026-03-25 17:22:00
+
+- 通过 `npx vercel inspect https://hz-i523350t4-mubai123456s-projects.vercel.app --logs` 拉到失败部署日志，确认 Vercel 失败根因是构建阶段预渲染后台页时触发 Prisma / Postgres `Max client connections reached`。
+- 已在 `src/app/(workspace)/layout.tsx` 增加 `export const dynamic = "force-dynamic"`，阻止工作台和后台页在 build 阶段访问数据库。
+- 本地验证通过：
+  - `node node_modules/next/dist/bin/next build`
+  - `npx eslint "src/app/(workspace)/layout.tsx"`
+- 构建输出中 `Generating static pages` 已从 `71` 降到 `53`，说明工作台路由组已退出静态预生成。
+
+下一步：
+
+- 将这一个路由配置修复推到 `codex/github-publish-1-13`，然后在 Vercel 上重新触发 production deployment。
+- 部署完成后重点回归 `/login`、`/`、`/admin/banners`、`/tasks`。

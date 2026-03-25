@@ -1,3 +1,11 @@
+## 2026-03-25 Vercel 登录热修复
+
+- 已修复默认演示账号在 Vercel / 线上库中因账号缺失或密码哈希漂移导致无法登录的问题。
+- 当前默认账号 `admin`、`ops.a`、`design.c` 会在用户输入正确默认密码时由后端自动补齐或修复密码哈希，避免“登录页提示可用，但线上数据库未初始化”的错位。
+- 登录页已移除公开展示账号密码的提示卡片，默认改为管理员线下分发账号信息。
+- 本轮已完成定向验证：
+  - `npm run test -- src/lib/auth.test.ts`
+
 ## 2026-03-25 1.13 Supabase / Postgres 升级基线
 
 - 当前主开发分支：`codex/supabase-upgrade-from-1-13`
@@ -997,3 +1005,36 @@ node scripts/deploy-vercel.mjs --target preview --env-file .env.vercel --skip-en
 ### 当前说明
 - 本轮保留原 `/tasks/[id]` 深度详情页，抽屉只承担“任务中心快速浏览”的角色，不额外改动原详情页链路。
 - `bun run build` 仍会输出仓库既有的 Turbopack NFT tracing warning，这次改动没有引入新的构建失败。
+
+## 2026-03-25 生产页容错热修复
+
+### 本轮完成
+- 工作台首页对 `getDashboardSummary` 和 `getEnabledAppsWithStats` 增加了生产级空态兜底，单个查询异常时不再整页报错。
+- 系统概览 `getAdminOverview` 增加了整体回退逻辑，后台统计查询失败时会保留管理入口并展示零值概览。
+- 任务中心对任务列表查询增加兜底，避免生产数据库短暂异常时直接落到 Server Components 错误页。
+- 新增两条回归测试，锁定“首页统计异常仍可渲染”和“系统概览异常仍返回空态”的行为。
+
+### 验证结果
+- `npx vitest run "src/app/(workspace)/page.test.tsx" src/lib/db/admin.test.ts`
+- `npx eslint "src/app/(workspace)/page.tsx" "src/app/(workspace)/page.test.tsx" "src/app/(workspace)/tasks/page.tsx" "src/lib/db/admin.ts" "src/lib/db/admin.test.ts"`
+- `node node_modules/next/dist/bin/next build`
+
+### 当前说明
+- 这次修复的目标是先避免线上概览页因单点查询失败直接白屏，真实的数据库枚举或 schema 漂移仍建议后续继续核对并补迁移。
+- 已将同一批修复推送到 Vercel 发布分支 `codex/github-publish-1-13`，等待线上部署完全切换即可继续人工回归。
+
+## 2026-03-25 Vercel 构建连接池修复
+
+### 本轮完成
+- 通过 Vercel CLI 拉取失败部署 `dpl_22A6iuxDC7eKshL4KUfSELkUFcFe` 的构建日志，确认失败根因不是 TypeScript 或 Next 构建语法错误，而是构建期预渲染后台页面时打满了 Postgres 连接池。
+- 在工作台路由组 layout 上显式增加 `export const dynamic = "force-dynamic"`，阻止 `/admin/*`、`/tasks`、`/` 等依赖 session 和数据库的页面在 build 阶段预渲染。
+- 调整后本地构建的 `Generating static pages` 数量已从 `71` 降到 `53`，说明工作台路由组已经退出静态预生成。
+
+### 验证结果
+- `npx vercel inspect https://hz-i523350t4-mubai123456s-projects.vercel.app --logs`
+- `node node_modules/next/dist/bin/next build`
+- `npx eslint "src/app/(workspace)/layout.tsx"`
+
+### 当前说明
+- 这次修复针对的是 Vercel 构建期连接数耗尽，不改变运行期数据库查询逻辑。
+- 如果后续还出现连接池告警，再考虑继续下调构建期数据库访问面，或把连接模式切到更适合 serverless/build 的池化配置。
