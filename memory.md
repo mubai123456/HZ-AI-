@@ -34,6 +34,9 @@
 - 不再使用子目录 Root Directory。
 - 部署前必须确认仓库根目录存在且只存在一套正式应用入口文件。
 - GitHub 默认分支与 Vercel 的 Production Branch 必须始终保持一致。
+- Vercel Git 自动部署必须先跑 `prisma migrate deploy` 再构建；默认构建命令应保持为 `npm run build:vercel`。
+- Vercel 生产环境下，如果使用 Supabase pooler，`DATABASE_URL` 必须走 transaction pooler 并带上 `pgbouncer=true&connection_limit=1`，否则后台页可能在 Serverless 并发下触发 `MaxClientsInSessionMode`。
+- `DIRECT_URL` 与 `DATABASE_URL` 不要无脑配置成同一个 session-mode pooler 连接串；`DIRECT_URL` 只用于 Prisma migration / schema 操作。
 
 ## 文档维护
 
@@ -41,3 +44,8 @@
 - `README.md` 只写当前有效入口和使用方式。
 - `log.md` 只记录阶段性进展与下一步。
 - `memory.md` 只保留长期有效规则，不写一次性排障细节。
+
+## 协作偏好
+
+- 安装外部仓库、技能或工具前，先做安全审查，再执行真实安装与启动验证。
+- 完成外部工具安装后，要给出可复现的详细使用步骤，并明确说明当前可用能力与受限能力。

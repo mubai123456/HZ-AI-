@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:vercel": "npm run prisma:migrate:deploy && next build",
     "start": "next start",
     "lint": "eslint",
     "test": "npm run test:db:reset && vitest run",

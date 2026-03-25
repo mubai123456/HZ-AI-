@@ -24,6 +24,29 @@
 - 旧二级 `ai-workbench/` 空壳目录已删除；当前仅剩“最外层 Windows 文件夹改名”为环境级收尾，不影响 Git 仓库结构本身。
 - GitHub 侧已经收口为单一正式分支；当前剩余部署侧动作是登录 Vercel 并核对 Production Branch。
 
+## 2026-03-25 线上后台页 Prisma schema 对齐
+
+### 当前阶段
+
+- [x] 定位 `/admin/apps` 线上 generic RSC error 的高概率根因是数据库 schema 落后于当前部署代码
+- [x] 为 Vercel Git 自动部署补上 `npm run build:vercel`
+- [x] 在 `vercel.json` 中固定 `buildCommand` 为 `npm run build:vercel`
+- [x] 为 Prisma `P2021 / P2022` 等 schema mismatch 增加明确日志
+- [x] 为后台高风险页补上 schema mismatch 的明确运维提示
+- [x] 为工作区错误页补上 `digest` 展示
+- [x] 跑通定向测试与生产构建
+- [x] 在生产数据库登记 `20260324190000_postgres_baseline`
+- [x] 修正 Vercel Production `DATABASE_URL` 为 Supabase transaction pooler 配置
+- [x] 为 Prisma runtime 连接补充 Supabase pooler 安全参数与连接池上限
+- [x] 重新触发 Vercel production 部署
+- [x] 回归 `/admin/apps`、`/admin/apps/new`、`/admin/apps/[code]`、`/admin/categories`、`/admin/settings/integrations`
+
+### Review
+
+- 这轮仓库修复解决的是“自动部署只构建不迁移”这条结构性缺口，并补了一层足够直白的运行时诊断。
+- 线上最终根因不止 migration，还包含 Supabase session pooler 配置不适合当前 Vercel Serverless 并发模型。
+- 当前生产库 baseline 已登记，Vercel Production 也已改为 transaction pooler 口径并重新部署，后台关键页已恢复。
+
 ## 2026-03-25 恢复到 1.11 并改成案例 + 结果区
 
 ### 新完成

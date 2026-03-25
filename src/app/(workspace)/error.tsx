@@ -35,6 +35,9 @@ export default function Error({
         <p className="mb-6 text-sm text-slate-500">
           {error.message || "发生了意外错误，请重试。"}
         </p>
+        {error.digest ? (
+          <p className="mb-6 text-xs text-slate-400">错误编号：{error.digest}</p>
+        ) : null}
         <button
           onClick={reset}
           className="rounded-full bg-[#0066DD] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#0055BB] shadow-sm"

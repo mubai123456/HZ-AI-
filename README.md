@@ -2,6 +2,23 @@
 
 内部 AI 应用工作台的唯一正式仓库。
 
+## 最近进度
+
+- 2026-03-25 21:44：已修复线上后台页 `Server Components render` 报错。
+- 当前已确认生产数据库 baseline 已登记，Vercel Production 已重新部署到最新代码。
+- 当前已回归通过：`/admin/apps`、`/admin/apps/new`、`/admin/apps/[code]`、`/admin/categories`、`/admin/settings/integrations`。
+- 当前线上关键数据库连接策略：
+  - `DATABASE_URL` 使用 Supabase transaction pooler 端口 `6543`
+  - 连接参数固定包含 `pgbouncer=true&connection_limit=1`
+  - `DIRECT_URL` 继续用于 Prisma migration / schema 操作
+- 2026-03-25：已在本机完成 `Vercel CLI 50.37.0` 全局安装，当前可直接使用 `vercel` / `vc` 命令。
+- 当前已验证 `vercel --version`、`vc --version` 可正常返回版本号。
+- 当前能力：可直接执行 `vercel login`、`vercel link`、`vercel deploy` 等命令。
+- 当前限制：这次只完成了 CLI 安装与命令校验，尚未在本轮里绑定账号或目标项目。
+- 2026-03-25：已在本机补充安装并验证 `CJFCodexSwitcher`，可用于查看 Codex 账号 5 小时 / 每周额度与执行账号存档。
+- 当前确认 `codex-switcher --list`、`--best`、`--refresh`、`--save-current` 可用。
+- 当前机器上的官方 `codex` 命令仍存在 `Access is denied` 问题，因此切换器里的“新增账号 / 调官方 codex login”能力暂时受限。
+
 ## 正确打开的目录
 
 - 当前这台机器上，请打开：
@@ -39,6 +56,7 @@ npm run dev
 ```bash
 npm run test
 npm run build
+npm run build:vercel
 ```
 
 如果需要生产态本地验证：
@@ -54,6 +72,8 @@ npm run start
 - 不再使用子目录 Root Directory
 - Vercel、预发、正式发布都应以当前根目录为唯一项目入口
 - GitHub 默认分支与 Vercel 的 Production Branch 必须保持一致；切换正式分支时，两边一起改
+- Vercel Git 自动部署必须使用 `npm run build:vercel`，确保先执行 `prisma migrate deploy` 再构建
+- 如果 Vercel Dashboard 里手动配置过 Build Command，也要同步改成 `npm run build:vercel`
 
 部署前至少检查：
 
@@ -84,6 +104,7 @@ npm run start
 ```bash
 npm run prisma:generate
 npm run prisma:migrate:deploy
+npm run build:vercel
 npm run deploy:vercel:preview
 npm run deploy:vercel:production
 ```

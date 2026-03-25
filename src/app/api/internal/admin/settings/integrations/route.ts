@@ -10,6 +10,11 @@ import { getSharedFeishuSyncSourceKeys } from "@/lib/feishu-sync-fields";
 import { env } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 import {
+  buildSchemaMismatchUserMessage,
+  isPrismaSchemaMismatchError,
+  logPrismaRuntimeDiagnostic,
+} from "@/lib/prisma-runtime-diagnostics";
+import {
   getResolvedFeishuSyncSettings,
   getResolvedIntegrationSettings,
   integrationSettingsUpdateSchema,
@@ -23,35 +28,47 @@ export async function GET() {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const [integrationSettings, feishuSettings] = await Promise.all([
-    getResolvedIntegrationSettings(),
-    getResolvedFeishuSyncSettings(),
-  ]);
-  const sharedSourceKeys = getSharedFeishuSyncSourceKeys();
+  try {
+    const [integrationSettings, feishuSettings] = await Promise.all([
+      getResolvedIntegrationSettings(),
+      getResolvedFeishuSyncSettings(),
+    ]);
+    const sharedSourceKeys = getSharedFeishuSyncSourceKeys();
 
-  const resolvedFeishu = resolveFeishuSyncConfig({
-    globalSettings: {
-      feishuAppToken: feishuSettings.feishuAppToken,
-      feishuTableId: feishuSettings.feishuTableId,
-      columnMappings: feishuSettings.columnMappings,
-    },
-    envTarget: {
-      appToken: env.FEISHU_APP_TOKEN,
-      tableId: env.FEISHU_TABLE_ID,
-    },
-    envSecret: env.FEISHU_APP_SECRET,
-  });
+    const resolvedFeishu = resolveFeishuSyncConfig({
+      globalSettings: {
+        feishuAppToken: feishuSettings.feishuAppToken,
+        feishuTableId: feishuSettings.feishuTableId,
+        columnMappings: feishuSettings.columnMappings,
+      },
+      envTarget: {
+        appToken: env.FEISHU_APP_TOKEN,
+        tableId: env.FEISHU_TABLE_ID,
+      },
+      envSecret: env.FEISHU_APP_SECRET,
+    });
 
-  return NextResponse.json({
-    ...integrationSettings,
-    feishuAppToken: resolvedFeishu.target.appToken,
-    feishuTableId: resolvedFeishu.target.tableId,
-    columnMappings: mappingRecordToEntries(
-      normalizeFeishuColumnMappings(resolvedFeishu.globalMapping, {
-        allowedSourceKeys: sharedSourceKeys,
-      }),
-    ),
-  });
+    return NextResponse.json({
+      ...integrationSettings,
+      feishuAppToken: resolvedFeishu.target.appToken,
+      feishuTableId: resolvedFeishu.target.tableId,
+      columnMappings: mappingRecordToEntries(
+        normalizeFeishuColumnMappings(resolvedFeishu.globalMapping, {
+          allowedSourceKeys: sharedSourceKeys,
+        }),
+      ),
+    });
+  } catch (error) {
+    logPrismaRuntimeDiagnostic("integration settings route GET", error);
+    if (!isPrismaSchemaMismatchError(error)) {
+      throw error;
+    }
+
+    return NextResponse.json(
+      { error: buildSchemaMismatchUserMessage("集成设置") },
+      { status: 500 },
+    );
+  }
 }
 
 export async function PUT(request: Request) {
@@ -101,6 +118,13 @@ export async function PUT(request: Request) {
       backfill,
     });
   } catch (error) {
+    if (isPrismaSchemaMismatchError(error)) {
+      logPrismaRuntimeDiagnostic("integration settings route PUT", error);
+      return NextResponse.json(
+        { error: buildSchemaMismatchUserMessage("集成设置") },
+        { status: 500 },
+      );
+    }
     const message = error instanceof Error ? error.message : "保存失败";
     return NextResponse.json({ error: message }, { status: 400 });
   }

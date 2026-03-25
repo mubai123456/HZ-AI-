@@ -3,6 +3,10 @@ import { z } from "zod";
 import { env } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 import {
+  isPrismaSchemaMismatchError,
+  logPrismaRuntimeDiagnostic,
+} from "@/lib/prisma-runtime-diagnostics";
+import {
   getRunningHubChannelSecretKeys,
   normalizeRunningHubChannels,
 } from "@/lib/runninghub-channels";
@@ -32,10 +36,6 @@ function normalizeThemeColor(value: unknown) {
   return /^#([0-9a-fA-F]{6})$/.test(normalized) ? normalized.toUpperCase() : DEFAULT_THEME_COLOR;
 }
 
-function isMissingTableError(error: unknown) {
-  return error instanceof Error && error.message.includes("no such table");
-}
-
 function isPlaceholderValue(value: string) {
   return (
     !value ||
@@ -62,7 +62,8 @@ async function readSiteSettingsRecord() {
       where: { id: "default" },
     });
   } catch (error) {
-    if (isMissingTableError(error)) {
+    if (isPrismaSchemaMismatchError(error)) {
+      logPrismaRuntimeDiagnostic("site settings read", error);
       return null;
     }
     throw error;
@@ -75,7 +76,8 @@ async function readIntegrationSettingsRecord() {
       where: { id: "default" },
     });
   } catch (error) {
-    if (isMissingTableError(error)) {
+    if (isPrismaSchemaMismatchError(error)) {
+      logPrismaRuntimeDiagnostic("integration settings read", error);
       return null;
     }
     throw error;
@@ -88,7 +90,8 @@ async function readFeishuSettingsRecord() {
       where: { id: "default" },
     });
   } catch (error) {
-    if (isMissingTableError(error)) {
+    if (isPrismaSchemaMismatchError(error)) {
+      logPrismaRuntimeDiagnostic("feishu settings read", error);
       return null;
     }
     throw error;
