@@ -1,6 +1,7 @@
 import { SignJWT, jwtVerify } from "jose";
 import bcrypt from "bcryptjs";
 
+import { ensureDefaultLoginAccountForCredentials } from "@/lib/default-login-accounts";
 import { env } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 import type { UserRecord } from "@/lib/types";
@@ -27,24 +28,28 @@ export async function authenticateMockUser(
   password: string,
 ): Promise<{ ok: true; user: UserRecord } | { ok: false; error: string }> {
   const normalized = username.trim().toLowerCase();
-  const dbUser = await prisma.user.findFirst({
-    where: {
-      username: normalized,
-      deletedAt: null,
-    },
-  });
+  const normalizedPassword = password.trim();
 
-  if (!dbUser || !dbUser.active) {
-    return { ok: false, error: "账号不存在或未启用。" };
+  if (normalizedPassword.length < 6) {
+    return { ok: false, error: "请输入至少 6 位密码。" };
   }
 
-  if (password.trim().length < 6) {
-    return { ok: false, error: "请输入至少 6 位密码。" };
+  const repairedDefaultUser = await ensureDefaultLoginAccountForCredentials(normalized, normalizedPassword);
+  const dbUser =
+    repairedDefaultUser ??
+    (await prisma.user.findUnique({
+      where: {
+        username: normalized,
+      },
+    }));
+
+  if (!dbUser || dbUser.deletedAt || !dbUser.active) {
+    return { ok: false, error: "账号不存在或未启用。" };
   }
 
   // Verify password against stored hash
   if (dbUser.passwordHash) {
-    const passwordValid = await bcrypt.compare(password.trim(), dbUser.passwordHash);
+    const passwordValid = await bcrypt.compare(normalizedPassword, dbUser.passwordHash);
     if (!passwordValid) {
       return { ok: false, error: "密码错误。" };
     }

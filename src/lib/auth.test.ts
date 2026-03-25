@@ -82,4 +82,37 @@ describe("authenticateMockUser", () => {
       expect(result.error).toBe("账号不存在或未启用。");
     }
   });
+
+  it("repairs the default admin account when its password hash drifted", async () => {
+    const staleHash = await bcrypt.hash("different-password", 10);
+    await prisma.user.upsert({
+      where: { username: "admin" },
+      update: {
+        displayName: "朝鑫",
+        role: "ADMIN",
+        active: true,
+        deletedAt: null,
+        passwordHash: staleHash,
+      },
+      create: {
+        username: "admin",
+        displayName: "朝鑫",
+        role: "ADMIN",
+        active: true,
+        passwordHash: staleHash,
+      },
+    });
+
+    const result = await authenticateMockUser("admin", "admin123");
+
+    expect(result.ok).toBe(true);
+    const repairedAdmin = await prisma.user.findUnique({
+      where: { username: "admin" },
+      select: {
+        passwordHash: true,
+      },
+    });
+    expect(repairedAdmin?.passwordHash).toBeTruthy();
+    expect(await bcrypt.compare("admin123", repairedAdmin?.passwordHash ?? "")).toBe(true);
+  });
 });

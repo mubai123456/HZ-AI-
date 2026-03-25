@@ -102,15 +102,6 @@ export default async function LoginPage() {
           </div>
 
           <LoginForm />
-
-          <div className="mt-8 rounded-xl border border-black/5 bg-[var(--bg-secondary)] p-4 dark:border-white/10">
-            <p className="text-center text-footnote text-[var(--label-tertiary)]">
-              演示账号：
-              <span className="font-medium text-[var(--label-secondary)]"> admin / admin123 </span>
-              <br />
-              <span className="text-[var(--label-quaternary)]">其他账号：ops.a / ops123，design.c / design123</span>
-            </p>
-          </div>
         </div>
       </section>
     </div>

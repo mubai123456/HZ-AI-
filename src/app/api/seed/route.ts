@@ -1,6 +1,6 @@
-import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 
+import { upsertDefaultLoginAccounts } from "@/lib/default-login-accounts";
 import { env } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 
@@ -10,48 +10,7 @@ export async function POST() {
   }
 
   try {
-    const adminPassword = await bcrypt.hash("admin123", 10);
-    const opsPassword = await bcrypt.hash("ops123", 10);
-    const designPassword = await bcrypt.hash("design123", 10);
-
-    const admin = await prisma.user.upsert({
-      where: { username: "admin" },
-      update: { passwordHash: adminPassword },
-      create: {
-        username: "admin",
-        displayName: "朝鑫",
-        role: "ADMIN",
-        active: true,
-        passwordHash: adminPassword,
-        lastLoginAt: new Date(),
-      },
-    });
-
-    const ops = await prisma.user.upsert({
-      where: { username: "ops.a" },
-      update: { passwordHash: opsPassword },
-      create: {
-        username: "ops.a",
-        displayName: "运营-A",
-        role: "USER",
-        active: true,
-        passwordHash: opsPassword,
-        lastLoginAt: new Date(),
-      },
-    });
-
-    const design = await prisma.user.upsert({
-      where: { username: "design.c" },
-      update: { passwordHash: designPassword },
-      create: {
-        username: "design.c",
-        displayName: "设计-C",
-        role: "USER",
-        active: true,
-        passwordHash: designPassword,
-        lastLoginAt: new Date(),
-      },
-    });
+    const [admin, ops, design] = await upsertDefaultLoginAccounts();
 
     const imageTag = await prisma.appTag.upsert({
       where: { name: "图片生成" },
