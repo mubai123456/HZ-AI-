@@ -293,6 +293,79 @@ describe("AppFormEditor", () => {
     });
   });
 
+  it("imports RunningHub fieldData as visible select nodes", async () => {
+    const view = renderEditor();
+
+    fireEvent.click(screen.getByTestId("app-editor-tab-nodes"));
+    fireEvent.click(screen.getByRole("button", { name: "从 API 示例导入" }));
+
+    const parseTextarea = view.container.querySelector('textarea[rows="16"]') as HTMLTextAreaElement;
+    fireEvent.change(parseTextarea, {
+      target: {
+        value: JSON.stringify({
+          nodeInfoList: [
+            {
+              nodeId: "10",
+              fieldName: "prompt",
+              fieldValue: "",
+              description: "输入文本",
+            },
+            {
+              nodeId: "11",
+              fieldName: "aspectRatio",
+              fieldValue: "3:4",
+              description: "比例",
+              fieldData: JSON.stringify([["1:1", "3:4", "16:9"], { default: "1:1" }]),
+            },
+            {
+              nodeId: "12",
+              fieldName: "resolution",
+              fieldValue: "2k",
+              description: "分辨率",
+              fieldData: JSON.stringify([
+                { name: "2k", index: "2k", description: "2K", fastIndex: 1 },
+                { name: "4k", index: "4k", description: "4K", fastIndex: 2 },
+              ]),
+            },
+            {
+              nodeId: "13",
+              fieldName: "channel",
+              fieldValue: "ecommerce",
+              description: "通道",
+              fieldData: JSON.stringify([
+                { name: "ecommerce", index: "ecommerce", description: "电商", fastIndex: 1 },
+                { name: "portrait", index: "portrait", description: "人像", fastIndex: 2 },
+              ]),
+            },
+          ],
+          instanceType: "default",
+        }),
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "解析并填充" }));
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue("下拉选择")).toHaveLength(3);
+    });
+
+    const textareaValues = screen
+      .getAllByRole("textbox")
+      .map((element) => (element as HTMLTextAreaElement).value);
+    expect(textareaValues).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("1:1"),
+        expect.stringContaining("2K:2k"),
+        expect.stringContaining("电商:ecommerce"),
+      ]),
+    );
+    expect(screen.getByDisplayValue("1:1")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("2k")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("ecommerce")).toBeInTheDocument();
+    expect(screen.getByTestId("node-hidden-toggle-1")).toBeChecked();
+    expect(screen.getByTestId("node-hidden-toggle-2")).toBeChecked();
+    expect(screen.getByTestId("node-hidden-toggle-3")).toBeChecked();
+  });
+
   it("removes deprecated display fields and saves showcase images", async () => {
     renderEditor({
       app: existingApp,

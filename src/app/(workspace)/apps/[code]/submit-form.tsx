@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -260,6 +260,7 @@ export function SubmitForm({ app, onSubmitSuccess, reuseTaskRequest }: Props) {
     [visibleFields],
   );
   const primaryTextarea = textareaFields[0] ?? null;
+  const supplementalTextareaFields = textareaFields.slice(1);
   const { primary: primarySelectFields, secondary: secondarySelectFields } = useMemo(
     () => splitSelectFields(selectFields),
     [selectFields],
@@ -638,6 +639,38 @@ export function SubmitForm({ app, onSubmitSuccess, reuseTaskRequest }: Props) {
               <p className="text-[11px] leading-5 text-slate-400">
                 提交后不会清空，方便你继续沿着当前输入做增量微调。
               </p>
+            </section>
+          ) : null}
+
+          {supplementalTextareaFields.length > 0 ? (
+            <section className="space-y-3">
+              <SectionHeader title="补充文本参数" description="这些附加输入会和主提示词一起提交给应用。" />
+              <div className="space-y-3">
+                {supplementalTextareaFields.map((field) => (
+                  <div key={field.key} className="rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-4">
+                    <div className="mb-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                        {field.label}
+                      </p>
+                      {field.description ? (
+                        <p className="mt-1 text-sm leading-6 text-slate-500">{field.description}</p>
+                      ) : null}
+                    </div>
+                    <textarea
+                      rows={4}
+                      placeholder={field.description || `请输入${field.label}...`}
+                      value={(formData[field.key] as string) ?? ""}
+                      onChange={(event) =>
+                        setFormData((current) => ({
+                          ...current,
+                          [field.key]: event.target.value,
+                        }))
+                      }
+                      className="min-h-[120px] w-full resize-y rounded-[20px] border border-slate-200 bg-white px-4 py-3 text-sm leading-7 text-slate-700 outline-none transition focus:border-slate-400"
+                    />
+                  </div>
+                ))}
+              </div>
             </section>
           ) : null}
 

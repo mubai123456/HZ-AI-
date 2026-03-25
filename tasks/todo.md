@@ -1,3 +1,29 @@
+# 2026-03-25 应用配置与生产稳定性修复
+
+## 当前阶段
+
+- [x] 复现本地生产态 `Server Components render` 崩溃并定位到 JWT 生产判定
+- [x] 修复 RunningHub `fieldData` 解析，恢复 select 字段类型、选项和默认值
+- [x] 调整应用编辑器显示开关语义为“默认前台显示，可取消显示”
+- [x] 修复单应用页只渲染首个 textarea 的问题
+- [x] 修复本地样本应用 `2-0` 的旧坏 schema
+- [x] 补充回归测试并重新通过全量测试、类型检查和生产构建
+- [x] 用生产态 `next start` + Playwright 回归 `/login`、`/admin/apps/new`、`/admin/apps/2-0`、`/apps/2-0`、`/tasks`
+
+## 下一阶段
+
+- [ ] 如仍有更多历史旧应用带错 schema，补一份可重复执行的数据修复脚本
+- [ ] 单独排查既有 Turbopack NFT tracing warning，避免影响后续构建排障
+
+## Review
+
+- 这轮不改数据库结构，只修解析、编辑器语义、前台渲染和已有样本数据，影响面控制在应用配置主链路。
+- 目前全量验证已恢复为：
+  - `npm run test`
+  - `node node_modules/next/dist/bin/next build`
+  - `npx tsc --noEmit`
+  - 生产态 smoke 全通过
+
 # 1.13 -> Supabase / Postgres 升级待办
 
 ## 当前阶段

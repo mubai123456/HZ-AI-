@@ -102,7 +102,7 @@ export function getSharedFeishuSyncFieldSortIndex(field: FeishuSharedSyncField):
 }
 
 export function getAppFeishuSyncFieldOptions(
-  formFields: Array<Pick<AppInputField, "key" | "label">>,
+  formFields: Array<Pick<AppInputField, "key" | "label" | "type">>,
 ): FeishuSyncFieldOption[] {
   const paramOptions = formFields
     .flatMap((field) => {
@@ -130,7 +130,7 @@ export function getAppFeishuSyncFieldOptions(
 }
 
 export function getAppFeishuSyncSourceKeys(
-  formFields: Array<Pick<AppInputField, "key" | "label">>,
+  formFields: Array<Pick<AppInputField, "key" | "label" | "type">>,
 ): Set<FeishuSyncSourceKey> {
   return new Set(getAppFeishuSyncFieldOptions(formFields).map((option) => option.value));
 }

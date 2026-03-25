@@ -1,3 +1,32 @@
+## 2026-03-25 应用配置与生产稳定性修复
+
+- 已修复本地 `next start` / 预发布验证下的 JWT 误判：
+  - `src/lib/auth.ts` 现在只在 `APP_ENV=production` 时强制要求安全 `JWT_SECRET`
+  - 本地生产构建不再因为默认开发密钥直接触发 `Server Components render` 错误页
+- 已修复 RunningHub API 示例导入链路：
+  - `src/lib/app-parser.ts` 新增 `fieldData` 解析
+  - 支持 `[[values], { default }]` 与 `[{ name, index, description, fastIndex }]` 两类下拉元数据
+  - 新导入节点默认前台可见，管理员可在编辑器里取消显示
+- 已修复应用前台表单遗漏节点的问题：
+  - `src/app/(workspace)/apps/[code]/submit-form.tsx` 不再只渲染首个 textarea
+  - 保留主提示词区域，同时把其余文本字段收进“补充文本参数”
+  - Select 字段继续保留首屏高频 + 折叠低频的结构
+- 已同步修复本地样本应用 `2-0`：
+  - 修正旧错误 schema，把 `aspectRatio / resolution / channel` 恢复为 dropdown
+  - 前台 `/apps/2-0` 已验证为：主提示词占首位，比例/分辨率/通道按下拉渲染
+- 本轮验证：
+  - `npm run test`
+  - `node node_modules/next/dist/bin/next build`
+  - `npx tsc --noEmit`
+  - 生产态 `next start` + Playwright smoke：
+    - `/login`
+    - `/admin/apps/new`
+    - `/admin/apps/2-0`
+    - `/apps/2-0`
+    - `/tasks`
+- 当前残余事项：
+  - `next build` 仍保留 1 条既有 Turbopack NFT tracing warning，未影响本轮功能修复
+
 ## 2026-03-25 Vercel 登录热修复
 
 - 已修复默认演示账号在 Vercel / 线上库中因账号缺失或密码哈希漂移导致无法登录的问题。

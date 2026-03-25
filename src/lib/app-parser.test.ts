@@ -204,4 +204,83 @@ describe("app parser structured config helpers", () => {
       usePersonalQueue: "false",
     });
   });
+
+  it("parses select nodes from RunningHub fieldData metadata", () => {
+    const input = JSON.stringify({
+      nodeInfoList: [
+        {
+          nodeId: "10",
+          fieldName: "prompt",
+          fieldValue: "",
+          description: "输入文本",
+        },
+        {
+          nodeId: "11",
+          fieldName: "aspectRatio",
+          fieldValue: "3:4",
+          description: "选择比例",
+          fieldData: JSON.stringify([["1:1", "3:4", "16:9"], { default: "1:1" }]),
+        },
+        {
+          nodeId: "12",
+          fieldName: "resolution",
+          fieldValue: "2k",
+          description: "分辨率",
+          fieldData: JSON.stringify([
+            { name: "2k", index: "2k", description: "2K", fastIndex: 1 },
+            { name: "4k", index: "4k", description: "4K", fastIndex: 2 },
+          ]),
+        },
+        {
+          nodeId: "13",
+          fieldName: "channel",
+          fieldValue: "ecommerce",
+          description: "通道",
+          fieldData: JSON.stringify([
+            { name: "ecommerce", index: "ecommerce", description: "电商", fastIndex: 1 },
+            { name: "portrait", index: "portrait", description: "人像", fastIndex: 2 },
+          ]),
+        },
+      ],
+      instanceType: "default",
+    });
+
+    const result = parseApiExample(input);
+
+    expect(result.nodes).toEqual([
+      expect.objectContaining({
+        key: "prompt",
+        type: "textarea",
+      }),
+      expect.objectContaining({
+        key: "aspectRatio",
+        type: "select",
+        defaultValue: "1:1",
+        options: [
+          { label: "1:1", value: "1:1" },
+          { label: "3:4", value: "3:4" },
+          { label: "16:9", value: "16:9" },
+        ],
+      }),
+      expect.objectContaining({
+        key: "resolution",
+        type: "select",
+        defaultValue: "2k",
+        options: [
+          { label: "2K", value: "2k" },
+          { label: "4K", value: "4k" },
+        ],
+      }),
+      expect.objectContaining({
+        key: "channel",
+        type: "select",
+        defaultValue: "ecommerce",
+        options: [
+          { label: "电商", value: "ecommerce" },
+          { label: "人像", value: "portrait" },
+        ],
+      }),
+    ]);
+    expect(result.extraParams).toEqual({ instanceType: "default" });
+  });
 });

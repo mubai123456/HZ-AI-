@@ -123,6 +123,205 @@ async function seed() {
     },
   });
 
+  const legacyDemoApp = await prisma.app.upsert({
+    where: { code: "2-0" },
+    update: {
+      providerAppId: "2027211316242423809",
+      enabled: true,
+      estimatedPriceFen: 1290,
+      category: "图片",
+      formSchemaJson: [
+        {
+          key: "image_1",
+          label: "图片 1",
+          type: "image",
+          description: "上传图像 1 【选填,一张图不上传默认是文生图】",
+          maxItems: 1,
+        },
+        {
+          key: "image_2",
+          label: "图片 2",
+          type: "image",
+          description: "上传图像 2 【选填,用不上的图像可以直接删掉】",
+          maxItems: 1,
+        },
+        {
+          key: "image_3",
+          label: "图片 3",
+          type: "image",
+          description: "上传图像 3 【选填,工作流里面最多支持10张图】",
+          maxItems: 1,
+        },
+        {
+          key: "text",
+          label: "文本",
+          type: "textarea",
+          description: "输入文本",
+        },
+        {
+          key: "aspectRatio",
+          label: "比例",
+          type: "select",
+          description: "设置比例",
+          options: [
+            { label: "1:1", value: "1:1" },
+            { label: "3:4", value: "3:4" },
+            { label: "4:5", value: "4:5" },
+            { label: "9:16", value: "9:16" },
+            { label: "16:9", value: "16:9" },
+          ],
+        },
+        {
+          key: "resolution",
+          label: "分辨率",
+          type: "select",
+          description: "分辨率",
+          options: [
+            { label: "1K", value: "1k" },
+            { label: "2K", value: "2k" },
+            { label: "4K", value: "4k" },
+          ],
+        },
+        {
+          key: "channel",
+          label: "通道",
+          type: "select",
+          description: "第三方/官方切换",
+          options: [
+            { label: "Third-party", value: "Third-party" },
+            { label: "Official", value: "Official" },
+          ],
+        },
+      ],
+      requestMappingJson: {
+        text: "9.text",
+        channel: "1.channel",
+        image_1: "2.image",
+        image_2: "3.image",
+        image_3: "4.image",
+        resolution: "1.resolution",
+        aspectRatio: "1.aspectRatio",
+      },
+      defaultParamsJson: {
+        channel: "Third-party",
+        resolution: "2k",
+        aspectRatio: "9:16",
+        instanceType: "default",
+        usePersonalQueue: "false",
+      },
+      tags: {
+        deleteMany: {},
+        create: [
+          { tag: { connect: { id: imageTag.id } } },
+          { tag: { connect: { id: ecommerceTag.id } } },
+        ],
+      },
+    },
+    create: {
+      id: "app-all-in-one-image-2-legacy",
+      code: "2-0",
+      name: "全能图片2.0",
+      description: "兼容旧链接的全能图片 2.0 示例应用。",
+      provider: "RUNNINGHUB",
+      providerAppId: "2027211316242423809",
+      enabled: true,
+      estimatedPriceFen: 1290,
+      category: "图片",
+      formSchemaJson: [
+        {
+          key: "image_1",
+          label: "图片 1",
+          type: "image",
+          description: "上传图像 1 【选填,一张图不上传默认是文生图】",
+          maxItems: 1,
+        },
+        {
+          key: "image_2",
+          label: "图片 2",
+          type: "image",
+          description: "上传图像 2 【选填,用不上的图像可以直接删掉】",
+          maxItems: 1,
+        },
+        {
+          key: "image_3",
+          label: "图片 3",
+          type: "image",
+          description: "上传图像 3 【选填,工作流里面最多支持10张图】",
+          maxItems: 1,
+        },
+        {
+          key: "text",
+          label: "文本",
+          type: "textarea",
+          description: "输入文本",
+        },
+        {
+          key: "aspectRatio",
+          label: "比例",
+          type: "select",
+          description: "设置比例",
+          options: [
+            { label: "1:1", value: "1:1" },
+            { label: "3:4", value: "3:4" },
+            { label: "4:5", value: "4:5" },
+            { label: "9:16", value: "9:16" },
+            { label: "16:9", value: "16:9" },
+          ],
+        },
+        {
+          key: "resolution",
+          label: "分辨率",
+          type: "select",
+          description: "分辨率",
+          options: [
+            { label: "1K", value: "1k" },
+            { label: "2K", value: "2k" },
+            { label: "4K", value: "4k" },
+          ],
+        },
+        {
+          key: "channel",
+          label: "通道",
+          type: "select",
+          description: "第三方/官方切换",
+          options: [
+            { label: "Third-party", value: "Third-party" },
+            { label: "Official", value: "Official" },
+          ],
+        },
+      ],
+      requestMappingJson: {
+        text: "9.text",
+        channel: "1.channel",
+        image_1: "2.image",
+        image_2: "3.image",
+        image_3: "4.image",
+        resolution: "1.resolution",
+        aspectRatio: "1.aspectRatio",
+      },
+      defaultParamsJson: {
+        channel: "Third-party",
+        resolution: "2k",
+        aspectRatio: "9:16",
+        instanceType: "default",
+        usePersonalQueue: "false",
+      },
+      syncMappingJson: {
+        taskNo: "任务号",
+        status: "任务状态",
+        providerStatus: "Provider 状态",
+        providerResultUrl: "结果链接",
+        ownerName: "创建人",
+      },
+      tags: {
+        create: [
+          { tag: { connect: { id: imageTag.id } } },
+          { tag: { connect: { id: ecommerceTag.id } } },
+        ],
+      },
+    },
+  });
+
   const otherApps = [
     {
       id: "app-qushuiyin",
@@ -168,7 +367,13 @@ async function seed() {
     });
   }
 
-  console.log("Seeded:", { admin: admin.id, ops: ops.id, design: design.id, app: app.id });
+  console.log("Seeded:", {
+    admin: admin.id,
+    ops: ops.id,
+    design: design.id,
+    app: app.id,
+    legacyDemoApp: legacyDemoApp.id,
+  });
 }
 
 seed()

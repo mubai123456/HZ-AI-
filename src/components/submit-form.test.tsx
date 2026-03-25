@@ -93,6 +93,30 @@ const hiddenFieldApp: AppDefinition = {
   },
 };
 
+const multiTextareaApp: AppDefinition = {
+  ...demoApp,
+  code: "multi-textarea-app",
+  formSchemaJson: [
+    { key: "prompt", label: "Prompt", type: "textarea", description: "主提示词" },
+    { key: "negativePrompt", label: "Negative Prompt", type: "textarea", description: "补充约束" },
+    { key: "hiddenNotes", label: "Hidden Notes", type: "textarea", hidden: true, description: "隐藏字段" },
+    {
+      key: "resolution",
+      label: "Resolution",
+      type: "select",
+      options: [
+        { label: "1K", value: "1k" },
+        { label: "2K", value: "2k" },
+      ],
+    },
+  ],
+  defaultParamsJson: {
+    negativePrompt: "Avoid blur",
+    hiddenNotes: "Only for backend",
+    resolution: "2k",
+  },
+};
+
 describe("SubmitForm", () => {
   const originalFetch = global.fetch;
   const originalCreateObjectURL = URL.createObjectURL;
@@ -316,5 +340,19 @@ describe("SubmitForm", () => {
         }),
       );
     });
+  });
+
+  it("renders every visible textarea while keeping hidden ones out of the form", async () => {
+    render(<SubmitForm app={multiTextareaApp} onSubmitSuccess={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Avoid blur")).toBeInTheDocument();
+    });
+
+    expect(screen.getByPlaceholderText("主提示词")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("补充约束")).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("隐藏字段")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("textbox")).toHaveLength(2);
+    expect(screen.getByRole("combobox")).toHaveValue("2k");
   });
 });

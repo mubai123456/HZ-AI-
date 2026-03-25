@@ -27,7 +27,7 @@ export async function backfillFeishuSyncForTasks(
       id: true,
       feishuRecordId: true,
     },
-    orderBy: { createdAt: "asc" },
+    orderBy: [{ siteTaskNo: "asc" }, { createdAt: "asc" }, { id: "asc" }],
   });
 
   const runSync = syncRunner ?? defaultFeishuSyncRunner;

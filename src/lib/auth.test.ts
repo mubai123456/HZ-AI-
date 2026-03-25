@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import bcrypt from "bcryptjs";
 
 import { prisma } from "@/lib/prisma";
-import { authenticateMockUser } from "@/lib/auth";
+import { assertSecureJwtSecret, authenticateMockUser } from "@/lib/auth";
 
 const testUsername = "auth-test-admin";
 
@@ -114,5 +114,22 @@ describe("authenticateMockUser", () => {
     });
     expect(repairedAdmin?.passwordHash).toBeTruthy();
     expect(await bcrypt.compare("admin123", repairedAdmin?.passwordHash ?? "")).toBe(true);
+  });
+});
+
+describe("jwt secret guard", () => {
+  it("allows local production builds to sign and verify sessions", () => {
+    expect(() =>
+      assertSecureJwtSecret("local-dev-jwt-secret-please-change", "local"),
+    ).not.toThrow();
+    expect(() =>
+      assertSecureJwtSecret("local-dev-jwt-secret-please-change", "preview"),
+    ).not.toThrow();
+  });
+
+  it("still rejects the fallback JWT secret in real production", () => {
+    expect(() =>
+      assertSecureJwtSecret("local-dev-jwt-secret-please-change", "production"),
+    ).toThrow("JWT_SECRET must be set to a secure value in production environments");
   });
 });

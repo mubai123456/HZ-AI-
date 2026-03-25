@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useMemo, useState } from "react";
 
@@ -725,7 +725,7 @@ export function AppFormEditor({
     }
 
     setShowcaseImages((current) => {
-      if (current.length >= 6 || current.includes(value)) {
+      if (current.length >= MAX_SHOWCASE_IMAGES || current.includes(value)) {
         return current;
       }
 
@@ -1505,22 +1505,22 @@ export function AppFormEditor({
                       </label>
                     </div>
                     <div className={fieldRowClass}>
-                      <label className={fieldLabelClass}>前台显示</label>
+                      <label className={fieldLabelClass}>默认前台显示</label>
                       <label className="flex items-center gap-3 rounded-[16px] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
                         <input
                           data-testid={`node-hidden-toggle-${index}`}
                           type="checkbox"
-                          checked={Boolean(node.hidden)}
-                          onChange={(event) => updateNode(index, { hidden: event.target.checked })}
+                          checked={!node.hidden}
+                          onChange={(event) => updateNode(index, { hidden: !event.target.checked })}
                         />
-                        {node.hidden ? "前台隐藏" : "前台显示"}
+                        {node.hidden ? "用户不可见" : "用户可见"}
                       </label>
                       <p className="text-xs text-slate-400">
                         {node.hidden
                           ? node.defaultValue
-                            ? "前台隐藏，提交时会自动使用默认值。"
-                            : "前台隐藏，本次提交将按空值发送。"
-                          : "字段会展示在前台表单中。"}
+                            ? "已取消前台显示，提交时会自动带上默认值。"
+                            : "已取消前台显示，本次提交会按空值发送。"
+                          : "默认勾选时，用户会在前台表单里看到这个字段。"}
                       </p>
                     </div>
                     <div className={fieldRowClass}>

@@ -15,11 +15,15 @@ type SessionPayload = {
   role: UserRecord["role"];
 };
 
-function getJwtSecret() {
-  const secret = env.JWT_SECRET;
-  if (process.env.NODE_ENV === "production" && secret === "local-dev-jwt-secret-please-change") {
+export function assertSecureJwtSecret(secret: string, appEnv = env.APP_ENV) {
+  if (appEnv === "production" && secret === "local-dev-jwt-secret-please-change") {
     throw new Error("JWT_SECRET must be set to a secure value in production environments");
   }
+}
+
+function getJwtSecret() {
+  const secret = env.JWT_SECRET;
+  assertSecureJwtSecret(secret, env.APP_ENV);
   return new TextEncoder().encode(secret);
 }
 

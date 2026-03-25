@@ -1,3 +1,27 @@
+## 2026-03-25 18:37:08
+
+- 完成应用配置与生产稳定性修复：
+  - `src/lib/auth.ts` 改为只在 `APP_ENV=production` 时强制校验安全 `JWT_SECRET`
+  - `src/lib/app-parser.ts` 新增 RunningHub `fieldData` 解析，支持两类下拉元数据格式
+  - `src/components/app-form-editor.tsx` 把“前台显示”语义调整为“默认可见，管理员可取消显示”
+  - `src/app/(workspace)/apps/[code]/submit-form.tsx` 改为渲染全部可见 textarea，并保留主提示词 + 补充文本参数结构
+  - `src/lib/feishu-sync-jobs.ts` 增加按 `siteTaskNo` 的稳定排序，消除补同步测试的非确定性
+  - `prisma/seed.ts` 新增对旧示例应用 `2-0` 的修复型 upsert
+- 同步修复当前本地库里的 `2-0`：
+  - 把 `aspectRatio / resolution / channel` 从错误的 `textarea` 改回 `select`
+  - 前台 `2-0` 已恢复为“文本主提示词 + 两个首屏下拉 + 一个折叠下拉”
+- 执行验证：
+  - `npx vitest run src/lib/auth.test.ts src/lib/app-parser.test.ts src/components/app-form-editor.test.tsx src/components/submit-form.test.tsx`
+  - `npm run test`
+  - `node node_modules/next/dist/bin/next build`
+  - `npx tsc --pretty false --noEmit`
+  - Playwright 生产态 smoke：`/login`、`/admin/apps/new`、`/admin/apps/2-0`、`/apps/2-0`、`/tasks`
+
+下一步：
+
+- 如果后续还需要兼容更多历史错 schema 的旧应用，优先补可复用的数据修复脚本，而不是继续手工改库
+- 单独跟进既有的 Turbopack NFT tracing warning，避免长期淹没真正新的构建告警
+
 ## 2026-03-25 14:36:00
 
 - 收口正式一键部署入口：

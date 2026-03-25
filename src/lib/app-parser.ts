@@ -16,6 +16,7 @@ interface NodeInfo {
   fieldName: string;
   fieldValue?: string;
   description?: string;
+  fieldData?: unknown;
 }
 
 interface ApiExample {
@@ -40,6 +41,7 @@ export interface ParsedNode {
 
 const LABEL_MAP: Record<string, string> = {
   image: "图片",
+  images: "图片",
   img: "图片",
   photo: "照片",
   prompt: "提示词",
@@ -53,19 +55,31 @@ const LABEL_MAP: Record<string, string> = {
   seed: "种子",
   strength: "强度",
   guidance: "引导强度",
+  aspectratio: "比例",
+  aspect_ratio: "比例",
+  resolution: "分辨率",
+  channel: "通道",
 };
 
 const SELECT_FIELD_NAMES = new Set([
   "style", "model", "ratio", "size", "instancetype",
   "sampler", "upscale", "facetool", "upscale_model",
+  "aspectratio", "aspect_ratio", "resolution", "channel",
 ]);
 
-function inferType(fieldName: string): "image" | "textarea" | "select" {
-  const lower = fieldName.toLowerCase();
+function normalizeFieldName(fieldName: string) {
+  return fieldName.toLowerCase().replace(/\[\d+\]$/, "");
+}
+
+function inferType(
+  fieldName: string,
+  hasSelectMetadata = false,
+): "image" | "textarea" | "select" {
+  const lower = normalizeFieldName(fieldName);
   if (lower.includes("image") || lower.includes("img") || lower.includes("photo")) {
     return "image";
   }
-  if (SELECT_FIELD_NAMES.has(lower)) {
+  if (hasSelectMetadata || SELECT_FIELD_NAMES.has(lower)) {
     return "select";
   }
   if (lower.includes("prompt")) {
@@ -78,8 +92,8 @@ function inferType(fieldName: string): "image" | "textarea" | "select" {
 }
 
 function toLabel(fieldName: string): string {
-  // 去掉序号后缀，如 "image_1" -> "image"，"image_2" -> "image"
-  const baseName = fieldName.replace(/_(\d+)$/, "");
+  // 去掉序号后缀，如 "image_1" / "images[0]" -> "image"
+  const baseName = fieldName.replace(/\[\d+\]$/, "").replace(/_(\d+)$/, "");
   return LABEL_MAP[baseName.toLowerCase()] ?? baseName;
 }
 
@@ -97,6 +111,99 @@ function parseSelectOptions(fieldValue: unknown): Array<{ label: string; value: 
     });
   }
   return [];
+}
+
+function normalizeText(value: unknown) {
+  if (typeof value === "string") {
+    return value.trim();
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  return "";
+}
+
+function parseFieldData(fieldData: unknown) {
+  if (typeof fieldData === "string") {
+    const trimmed = fieldData.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(trimmed);
+    } catch {
+      return null;
+    }
+  }
+
+  if (Array.isArray(fieldData) || (fieldData && typeof fieldData === "object")) {
+    return fieldData;
+  }
+
+  return null;
+}
+
+function toSelectOption(value: unknown): { label: string; value: string } | null {
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    const text = normalizeText(value);
+    return text ? { label: text, value: text } : null;
+  }
+
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  const label = normalizeText(
+    record.description ?? record.label ?? record.name ?? record.index ?? record.value,
+  );
+  const optionValue = normalizeText(
+    record.index ?? record.value ?? record.name ?? record.label ?? record.description,
+  );
+
+  if (!label && !optionValue) {
+    return null;
+  }
+
+  return {
+    label: label || optionValue,
+    value: optionValue || label,
+  };
+}
+
+function parseSelectConfig(node: NodeInfo): {
+  options: Array<{ label: string; value: string }>;
+  defaultValue: string;
+} | null {
+  const parsedFieldData = parseFieldData(node.fieldData);
+
+  if (Array.isArray(parsedFieldData)) {
+    if (Array.isArray(parsedFieldData[0])) {
+      const options = parsedFieldData[0]
+        .map((item) => toSelectOption(item))
+        .filter((item): item is { label: string; value: string } => item !== null);
+      const meta = parsedFieldData[1];
+      const defaultValue =
+        meta && typeof meta === "object" && !Array.isArray(meta)
+          ? normalizeText((meta as Record<string, unknown>).default)
+          : "";
+
+      if (options.length > 0) {
+        return { options, defaultValue };
+      }
+    }
+
+    const options = parsedFieldData
+      .map((item) => toSelectOption(item))
+      .filter((item): item is { label: string; value: string } => item !== null);
+
+    if (options.length > 0) {
+      return { options, defaultValue: "" };
+    }
+  }
+
+  return null;
 }
 
 function extractJson(input: string): string {
@@ -179,8 +286,12 @@ export function parseApiExample(input: string): ParseResult {
   const fieldNameCounter: Record<string, number> = {};
 
   const fields: ParsedField[] = nodeInfoList.map((node) => {
-    const type = inferType(node.fieldName);
-    const options = type === "select" ? parseSelectOptions(node.fieldValue) : [];
+    const parsedSelectConfig = parseSelectConfig(node);
+    const type = inferType(node.fieldName, parsedSelectConfig !== null);
+    const options =
+      type === "select"
+        ? parsedSelectConfig?.options ?? parseSelectOptions(node.fieldValue)
+        : [];
 
     // 生成唯一 key：如果同名出现多次，用 fieldName_1, fieldName_2 方式区分
     const count = fieldNameCount[node.fieldName] ?? 1;
@@ -192,7 +303,17 @@ export function parseApiExample(input: string): ParseResult {
 
     // 非 select 类型：fieldValue 如果是单值且不是文件名 hash，就当作默认值
     let defaultValue = "";
-    if (type !== "select" && typeof node.fieldValue === "string" && node.fieldValue) {
+    if (type === "select") {
+      const fallbackValue =
+        typeof node.fieldValue === "string" && !node.fieldValue.includes(",")
+          ? node.fieldValue
+          : "";
+      defaultValue =
+        parsedSelectConfig?.defaultValue ||
+        normalizeText(fallbackValue) ||
+        options[0]?.value ||
+        "";
+    } else if (typeof node.fieldValue === "string" && node.fieldValue) {
       if (node.fieldValue.length < 100 && !/^[a-f0-9]{32,}$/i.test(node.fieldValue)) {
         defaultValue = node.fieldValue;
       }

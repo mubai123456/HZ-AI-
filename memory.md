@@ -1,3 +1,18 @@
+## 2026-03-25 应用配置与生产稳定性长期规则补充
+
+- `JWT_SECRET` 的强制安全校验只允许跟 `APP_ENV=production` 绑定，不能再直接用 `NODE_ENV=production` 作为“真实生产环境”的判定。
+- RunningHub 新建应用导入链路里，select 字段的真实来源优先看 `fieldData`，只有在缺少元数据时才允许退回字段名启发式推断。
+- RunningHub `fieldData` 目前至少要兼容两种格式：
+  - `[[values], { default }]`
+  - `[{ name, index, description, fastIndex }, ...]`
+- 应用节点编辑器里的显示开关，长期语义固定为“默认前台显示，管理员可取消显示”；底层继续存 `hidden`，不要为了 UI 语义去改库结构。
+- 单应用页左栏的 textarea 规则固定为：
+  - 第一个 textarea 作为主提示词区域
+  - 其余可见 textarea 统一放进“补充文本参数”
+  - 隐藏 textarea 不对用户展示，但仍允许沿用默认值参与提交
+- 飞书补同步批处理默认应使用稳定排序；如果任务天然带 `siteTaskNo`，优先按 `siteTaskNo` 排序，避免同秒创建记录导致测试和实际执行顺序漂移。
+- 本地常用演示应用 `2-0` 需要和当前正确 schema 保持一致；如后续重置环境，seed 必须能把它修回 dropdown 版本，避免旧坏数据反复回流。
+
 ## 2026-03-25 Supabase / Postgres 升级分支长期规则
 
 - 当前升级主线固定为 `codex/supabase-upgrade-from-1-13`，稳定回退基线固定为 `codex/restore-1-11-case-results`。
