@@ -53,6 +53,7 @@ npm run start
 - 部署根目录固定为仓库根目录 `/`
 - 不再使用子目录 Root Directory
 - Vercel、预发、正式发布都应以当前根目录为唯一项目入口
+- GitHub 默认分支与 Vercel 的 Production Branch 必须保持一致；切换正式分支时，两边一起改
 
 部署前至少检查：
 

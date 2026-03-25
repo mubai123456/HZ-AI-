@@ -33,6 +33,7 @@
 - 部署根目录固定为仓库根目录 `/`。
 - 不再使用子目录 Root Directory。
 - 部署前必须确认仓库根目录存在且只存在一套正式应用入口文件。
+- GitHub 默认分支与 Vercel 的 Production Branch 必须始终保持一致。
 
 ## 文档维护
 

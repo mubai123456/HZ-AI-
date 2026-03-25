@@ -1,3 +1,23 @@
+## 2026-03-25 20:12
+
+- 完成 GitHub 侧收尾：
+  - 将仓库默认分支切到 `codex/repo-root-consolidation-clean`
+  - 删除旧远端分支 `codex/github-publish-1-13`
+  - 当前远端只保留 1 条正式工作分支
+- 再次确认最外层文件夹改名阻塞仍来自当前工作区进程占用：
+  - 目标改名：`D:\2.文档\5.AI编程项目\5.内部AI网站` -> `D:\2.文档\5.AI编程项目\ai-workbench`
+  - 需要关闭当前 Codex 窗口和打开该目录的资源管理器后，才能执行改名
+- 确认部署平台为 Vercel：
+  - 本机 Vercel CLI 可用
+  - 浏览器当前未登录 Vercel，因此本轮未能直接改线上项目的 Production Branch
+  - 已在文档中补充长期规则：GitHub 默认分支与 Vercel Production Branch 必须保持一致
+
+下一步：
+
+- 关闭当前占用仓库目录的 Codex / 资源管理器窗口后，执行最外层文件夹改名
+- 登录 Vercel 后，将目标项目的 Production Branch 对齐到当前正式分支
+- 如后续要收口到新的长期分支，再同步修改 GitHub 默认分支与 Vercel Production Branch
+
 ## 2026-03-25 19:30
 
 - 完成仓库结构收口的第一阶段：

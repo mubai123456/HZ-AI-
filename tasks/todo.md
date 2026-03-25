@@ -11,7 +11,10 @@
 - [x] 在新根目录下重新跑 `npm install`
 - [x] 在新根目录下重新跑 `npm run test`
 - [x] 在新根目录下重新跑 `npm run build`
+- [x] 将 GitHub 默认分支切到 `codex/repo-root-consolidation-clean`
+- [x] 删除旧远端默认分支 `codex/github-publish-1-13`
 - [ ] 将最外层文件夹从 `5.内部AI网站` 改名为 `ai-workbench`
+- [ ] 登录 Vercel 并将线上项目的 Production Branch 对齐到当前正式分支
 
 ### Review
 
@@ -19,6 +22,7 @@
 - 现在开始，正式项目的唯一入口应该是仓库根目录，而不是任何二级目录或历史快照目录。
 - 根目录验证已通过：测试 `48/48` 文件通过，构建通过，生产态页面 `/login`、`/admin`、`/apps` 可正常打开。
 - 旧二级 `ai-workbench/` 空壳目录已删除；当前仅剩“最外层 Windows 文件夹改名”为环境级收尾，不影响 Git 仓库结构本身。
+- GitHub 侧已经收口为单一正式分支；当前剩余部署侧动作是登录 Vercel 并核对 Production Branch。
 
 ## 2026-03-25 恢复到 1.11 并改成案例 + 结果区
 
