@@ -1,11 +1,11 @@
 "use client";
 
 import { SubmitForm } from "@/app/(workspace)/apps/[code]/submit-form";
-import type { AppDefinition, TaskRecord } from "@/lib/types";
+import type { AppDefinition, TaskRecord, TaskSubmissionResult } from "@/lib/types";
 
 interface LeftPanelProps {
   app: AppDefinition;
-  onTaskSubmitted?: (taskId: string) => void;
+  onTaskSubmitted?: (result: TaskSubmissionResult) => void;
   reuseTaskRequest?: { task: TaskRecord; nonce: number } | null;
 }
 
@@ -15,8 +15,8 @@ export function LeftPanel({ app, onTaskSubmitted, reuseTaskRequest }: LeftPanelP
       <SubmitForm
         app={app}
         reuseTaskRequest={reuseTaskRequest}
-        onSubmitSuccess={(taskId) => {
-          onTaskSubmitted?.(taskId);
+        onSubmitSuccess={(result) => {
+          onTaskSubmitted?.(result);
         }}
       />
     </div>

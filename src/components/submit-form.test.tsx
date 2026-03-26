@@ -117,6 +117,60 @@ const multiTextareaApp: AppDefinition = {
   },
 };
 
+const runningHubSemanticApp: AppDefinition = {
+  ...demoApp,
+  code: "runninghub-semantic-app",
+  formSchemaJson: [
+    {
+      key: "image",
+      label: "上传图像 1",
+      type: "image",
+      description: "上传图像 1 【选填,一张图不上传默认是文生图】",
+    },
+    {
+      key: "text",
+      label: "输入文本",
+      type: "textarea",
+      description: "输入文本",
+    },
+    {
+      key: "aspectRatio",
+      label: "设置比例",
+      type: "select",
+      description: "设置比例",
+      options: [
+        { label: "auto", value: "auto" },
+        { label: "9:16", value: "9:16" },
+      ],
+    },
+    {
+      key: "resolution",
+      label: "分辨率",
+      type: "select",
+      description: "分辨率",
+      options: [
+        { label: "1k", value: "1k" },
+        { label: "2k", value: "2k" },
+      ],
+    },
+    {
+      key: "channel",
+      label: "第三方/官方切换",
+      type: "select",
+      description: "第三方/官方切换",
+      options: [
+        { label: "第三方（低价渠道版）", value: "Third-party" },
+        { label: "官方（官方稳定版）", value: "Official" },
+      ],
+    },
+  ],
+  defaultParamsJson: {
+    aspectRatio: "9:16",
+    resolution: "2k",
+    channel: "Third-party",
+  },
+};
+
 describe("SubmitForm", () => {
   const originalFetch = global.fetch;
   const originalCreateObjectURL = URL.createObjectURL;
@@ -142,9 +196,20 @@ describe("SubmitForm", () => {
     fetchMock
       .mockResolvedValueOnce(new Response(JSON.stringify({ url: "/uploads/look-1.png" }), { status: 200 }))
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ ok: true, taskId: "task-1", taskNo: "202603220001" }), {
+        new Response(
+          JSON.stringify({
+            ok: true,
+            taskId: "task-1",
+            taskNo: "202603220001",
+            submissionState: "RUNNING",
+            task: {
+              id: "task-1",
+            },
+          }),
+          {
           status: 200,
-        }),
+          },
+        ),
       );
 
     const onSubmitSuccess = vi.fn();
@@ -162,7 +227,13 @@ describe("SubmitForm", () => {
 
     fireEvent.click(screen.getByLabelText("submit-task"));
 
-    await waitFor(() => expect(onSubmitSuccess).toHaveBeenCalledWith("task-1"));
+    await waitFor(() =>
+      expect(onSubmitSuccess).toHaveBeenCalledWith(
+        expect.objectContaining({
+          taskId: "task-1",
+        }),
+      ),
+    );
     expect(container.querySelector('img[src="blob:look-1.png"]')).toBeInTheDocument();
   });
 
@@ -354,5 +425,20 @@ describe("SubmitForm", () => {
     expect(screen.queryByPlaceholderText("隐藏字段")).not.toBeInTheDocument();
     expect(screen.getAllByRole("textbox")).toHaveLength(2);
     expect(screen.getByRole("combobox")).toHaveValue("2k");
+  });
+
+  it("uses human-readable field labels and option labels from imported RunningHub semantics", () => {
+    render(<SubmitForm app={runningHubSemanticApp} onSubmitSuccess={vi.fn()} />);
+
+    expect(screen.getAllByText("设置比例").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("分辨率").length).toBeGreaterThan(0);
+    expect(screen.getByLabelText("上传图像 1")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText("toggle-advanced-params"));
+
+    expect(screen.getAllByText("第三方/官方切换").length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("combobox")[0]).toHaveValue("9:16");
+    expect(screen.getByRole("option", { name: "第三方（低价渠道版）" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "官方（官方稳定版）" })).toBeInTheDocument();
   });
 });

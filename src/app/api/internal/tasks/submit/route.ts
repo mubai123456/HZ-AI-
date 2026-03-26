@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 
+import { getTaskById } from "@/lib/db/tasks";
 import { submitNewTask } from "@/lib/task-queue";
 import { getCurrentSession } from "@/lib/session";
+import { sanitizeUserFacingError } from "@/lib/user-facing-errors";
 
 export async function POST(request: Request) {
   const session = await getCurrentSession();
@@ -28,10 +30,14 @@ export async function POST(request: Request) {
       userId: session.sub,
     });
 
-    return NextResponse.json({ ok: true, taskId: result.taskId, taskNo: result.taskNo });
+    const task = await getTaskById(result.taskId, {
+      role: session.role,
+      userId: session.sub,
+    });
+
+    return NextResponse.json({ ok: true, ...result, task });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Submit failed";
-    console.error(`[tasks/submit] Error:`, message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error(`[tasks/submit] Error:`, err);
+    return NextResponse.json({ error: sanitizeUserFacingError(err, "submit") }, { status: 500 });
   }
 }

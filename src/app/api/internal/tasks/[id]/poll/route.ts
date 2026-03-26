@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentSession } from "@/lib/session";
 import { pumpTask } from "@/lib/task-queue";
+import { sanitizeUserFacingError } from "@/lib/user-facing-errors";
 
 export async function GET(
   _: Request,
@@ -44,7 +45,7 @@ export async function GET(
     const result = await pumpTask(task.providerTaskId);
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Poll failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error(`[tasks/poll/${id}] Error:`, err);
+    return NextResponse.json({ error: sanitizeUserFacingError(err, "poll") }, { status: 500 });
   }
 }

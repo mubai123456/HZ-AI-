@@ -10,6 +10,7 @@ import {
   getRunningHubChannelSecretKeys,
   normalizeRunningHubChannels,
 } from "@/lib/runninghub-channels";
+import { isValidEnvKeyName } from "@/lib/env-key-names";
 import {
   normalizeSiteNavLabels,
   resolveSiteNavLabels,
@@ -115,7 +116,12 @@ export const integrationSettingsUpdateSchema = z.object({
       z.object({
         code: z.string().trim().min(1).max(64),
         name: z.string().trim().min(1).max(80),
-        apiKeyEnvName: z.string().trim().min(1).max(128),
+        apiKeyEnvName: z
+          .string()
+          .trim()
+          .min(1)
+          .max(128)
+          .refine(isValidEnvKeyName, "API Key Env 只能填写环境变量名，例如 RUNNINGHUB_API_KEY"),
         concurrencyLimit: z.coerce.number().int().min(1).max(1000),
         priority: z.coerce.number().int().min(1).max(999),
         enabled: z.boolean(),

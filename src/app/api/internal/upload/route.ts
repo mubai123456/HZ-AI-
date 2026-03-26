@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { uploadFile } from "@/lib/runninghub";
 import { getCurrentSession } from "@/lib/session";
+import { sanitizeUserFacingError } from "@/lib/user-facing-errors";
 
 export async function POST(request: Request) {
   const session = await getCurrentSession();
@@ -28,7 +29,7 @@ export async function POST(request: Request) {
     // Return the full download URL (RunningHub needs the full URL to reference the image)
     return NextResponse.json({ url: downloadUrl, fileName });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Upload failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[internal/upload] Error:", err);
+    return NextResponse.json({ error: sanitizeUserFacingError(err, "upload") }, { status: 500 });
   }
 }

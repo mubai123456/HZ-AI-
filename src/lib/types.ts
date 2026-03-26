@@ -207,6 +207,16 @@ export interface TaskRecord {
   appInputSchema?: TaskInputSchemaField[];
 }
 
+export type TaskSubmissionState = "RUNNING" | "QUEUED" | "FAILED";
+
+export interface TaskSubmissionResult {
+  taskId: string;
+  taskNo: string;
+  submissionState: TaskSubmissionState;
+  message?: string | null;
+  task?: TaskRecord | null;
+}
+
 export interface DashboardStat {
   label: string;
   value: string;

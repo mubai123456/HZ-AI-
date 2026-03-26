@@ -1,3 +1,22 @@
+## 2026-03-26 14:10
+
+- 完成单应用提交链路修复：
+  - 上传图片失败时，前端不再显示 RunningHub API key、环境变量名或原始内部报错
+  - `RunningHub` 通道配置新增环境变量名格式校验，避免把真实 key 误存到 `apiKeyEnvName`
+  - 历史非法通道配置会在读取时被过滤，不再继续对前端暴露
+  - 提交任务接口现在会返回任务快照和提交状态：`RUNNING / QUEUED / FAILED`
+  - 缺少可用通道、缺少 key、应用映射缺失等不可恢复问题会直接反馈为失败，不再静默排队重试
+  - 单应用工作台提交后会立即把新任务插入右侧“全站任务”列表并选中，不再只依赖 SSE
+- 完成测试与验证：
+  - `npx vitest run src/app/api/internal/upload/route.test.ts src/app/api/internal/tasks/submit/route.test.ts src/lib/runninghub-channels.test.ts src/components/app-workbench-client.test.tsx src/components/submit-form.test.tsx src/components/use-app-tasks.test.tsx`
+  - `npx eslint src/lib/env-key-names.ts src/lib/user-facing-errors.ts src/lib/runninghub-channels.ts src/lib/settings.ts src/lib/types.ts src/app/api/internal/upload/route.ts src/app/api/internal/upload/route.test.ts src/app/api/internal/tasks/submit/route.ts src/app/api/internal/tasks/submit/route.test.ts src/app/api/internal/tasks/[id]/poll/route.ts src/lib/task-queue.ts src/lib/runninghub-channels.test.ts src/components/use-app-tasks.ts src/components/app-workbench-client.tsx src/components/app-workbench-client.test.tsx src/components/left-panel.tsx src/app/(workspace)/apps/[code]/submit-form.tsx src/components/submit-form.test.tsx src/components/use-app-tasks.test.tsx`
+  - `npm run build`
+
+下一步：
+
+- 用真实单应用页面做一次人工回归：上传图、断开/恢复 RunningHub key、提交成功、提交失败、进入本地队列 3 条路径都走一遍
+- 评估是否把其他用户可见路由里的第三方原始错误也统一切到同一套安全错误映射
+
 ## 2026-03-25 21:44
 
 - 完成线上后台页 `Server Components render` 的真实根因排查与修复：
@@ -149,3 +168,27 @@
 - 将本轮仓库整理提交并推送到 GitHub
 - 关闭当前占用仓库根目录的 Codex/资源管理器窗口
 - 最后把最外层文件夹从 `5.内部AI网站` 改名为 `ai-workbench`
+
+## 2026-03-25 23:25
+
+- 完成 RunningHub 单应用模板导入语义修正：
+  - `fieldData` 中带选项元数据的节点会自动识别为下拉框
+  - 下拉选项显示文案优先使用 `description`，提交值保持使用 `index/value`
+  - 字段显示名称优先从 `description` 提取人话标题，不再默认暴露 `aspectRatio`、`resolution`、`channel`
+  - 长描述采用“短标题 + 完整说明”策略，标题更短，说明区保留完整原文
+- 更新了 RunningHub 样本应用语义：
+  - `设置比例`
+  - `分辨率`
+  - `第三方/官方切换`
+  - `输入文本`
+  - `上传图像 1/2/3`
+- 补齐并跑通定向验证：
+  - `src/lib/app-parser.test.ts`
+  - `src/components/app-form-editor.test.tsx`
+  - `src/components/submit-form.test.tsx`
+  - `npm run build`
+
+下一步：
+
+- 用真实 RunningHub API 示例再次走一遍“导入 -> 保存 -> 前台打开”人工回归
+- 如需让图片字段也展示完整辅助说明，再决定是否补一个轻量说明区而不是把长文案塞进标题

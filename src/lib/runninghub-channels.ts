@@ -1,4 +1,5 @@
 import { env } from "@/lib/env";
+import { isValidEnvKeyName } from "@/lib/env-key-names";
 import type { RunningHubChannelConfig } from "@/lib/types";
 
 export const LEGACY_RUNNINGHUB_CHANNEL_CODE = "consumer";
@@ -51,7 +52,7 @@ export function normalizeRunningHubChannels(
       const code = normalizeText(record.code);
       const name = normalizeText(record.name);
       const apiKeyEnvName = normalizeText(record.apiKeyEnvName);
-      if (!code || !name || !apiKeyEnvName || seenCodes.has(code)) {
+      if (!code || !name || !apiKeyEnvName || !isValidEnvKeyName(apiKeyEnvName) || seenCodes.has(code)) {
         return null;
       }
       seenCodes.add(code);

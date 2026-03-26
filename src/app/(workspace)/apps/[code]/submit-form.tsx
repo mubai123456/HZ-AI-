@@ -3,11 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { PromptTemplateModal } from "@/components/prompt-template-modal";
-import type { AppDefinition, AppInputField, TaskRecord } from "@/lib/types";
+import type { AppDefinition, AppInputField, TaskRecord, TaskSubmissionResult } from "@/lib/types";
 
 interface Props {
   app: AppDefinition;
-  onSubmitSuccess?: (taskId: string) => void;
+  onSubmitSuccess?: (result: TaskSubmissionResult) => void;
   reuseTaskRequest?: { task: TaskRecord; nonce: number } | null;
 }
 
@@ -487,9 +487,20 @@ export function SubmitForm({ app, onSubmitSuccess, reuseTaskRequest }: Props) {
         throw new Error(data?.error ?? "提交任务失败");
       }
 
-      const data = await response.json();
-      setSubmitSuccess(`任务已提交：${data.taskNo}`);
-      onSubmitSuccess?.(data.taskId);
+      const data = (await response.json()) as TaskSubmissionResult;
+
+      if (data.task) {
+        onSubmitSuccess?.(data);
+      }
+
+      if (data.submissionState === "FAILED") {
+        setSubmitError(data.message ?? "任务未能提交到 RunningHub，请联系管理员检查配置。");
+        return;
+      }
+
+      setSubmitSuccess(
+        data.message ?? (data.submissionState === "QUEUED" ? `任务已进入队列：${data.taskNo}` : `任务已提交：${data.taskNo}`),
+      );
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : "提交任务失败");
     } finally {
@@ -801,6 +812,9 @@ function SelectField({
   return (
     <div className="rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3">
       <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">{field.label}</p>
+      {field.description ? (
+        <p className="mt-1 text-xs leading-5 text-slate-500">{field.description}</p>
+      ) : null}
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}

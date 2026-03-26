@@ -11,7 +11,7 @@ import { ResultsPanelClient } from "@/components/results-panel-client";
 import { sortTasksByNewest, useAppTasks } from "@/components/use-app-tasks";
 import { WorkbenchHeaderSlot } from "@/components/workbench-header-slot";
 import { WorkbenchLayout } from "@/components/workbench-layout";
-import type { AppDefinition, TaskRecord } from "@/lib/types";
+import type { AppDefinition, TaskRecord, TaskSubmissionResult } from "@/lib/types";
 
 interface Props {
   app: AppDefinition;
@@ -31,7 +31,7 @@ export function AppWorkbenchClient({ app, allTasks }: Props) {
     return sortTasksByNewest(allTasks.filter((task) => task.appCode === app.code))[0]?.id ?? null;
   }, [allTasks, app.code, requestedTaskId]);
 
-  const { tasks: liveTasks, selectedTaskId, setSelectedTaskId, refreshTasks } = useAppTasks(allTasks, {
+  const { tasks: liveTasks, selectedTaskId, setSelectedTaskId, upsertTask, refreshTasks } = useAppTasks(allTasks, {
     initialTaskId,
   });
 
@@ -58,6 +58,19 @@ export function AppWorkbenchClient({ app, allTasks }: Props) {
     [app.code],
   );
 
+  const handleTaskSubmitted = useCallback(
+    (result: TaskSubmissionResult) => {
+      if (result.task) {
+        upsertTask(result.task);
+      } else {
+        setSelectedTaskId(result.taskId);
+      }
+
+      void refreshTasks();
+    },
+    [refreshTasks, setSelectedTaskId, upsertTask],
+  );
+
   return (
     <>
       <WorkbenchHeaderSlot>
@@ -66,7 +79,7 @@ export function AppWorkbenchClient({ app, allTasks }: Props) {
 
       <WorkbenchLayout
         left={
-          <LeftPanel app={app} onTaskSubmitted={handleSelectTask} reuseTaskRequest={reuseTaskRequest} />
+          <LeftPanel app={app} onTaskSubmitted={handleTaskSubmitted} reuseTaskRequest={reuseTaskRequest} />
         }
         middle={
           <ResultsPanelClient

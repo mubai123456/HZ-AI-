@@ -4,6 +4,15 @@
 
 ## 最近进度
 
+- 2026-03-26 14:10：已修复单应用提交链路的 3 个关键问题。
+- 上传图片失败时不再把 RunningHub API key / 环境变量名等内部错误直接回显到前端。
+- 提交任务接口现在会明确返回 `已提交到 RunningHub / 已进入本地队列 / 提交失败` 三种状态，不再出现“其实没发出去却只显示成功”的反馈。
+- 单应用页右侧“全站任务”现在在提交成功后会立即插入最新任务，不再只依赖内存 SSE 刷新。
+- 已补齐并通过相关回归：上传路由、提交路由、通道配置校验、单应用工作台即时更新、`submit-form` 相关测试。
+- 2026-03-25 23:25：已修正 RunningHub API 示例导入语义。
+- `fieldData` 只要能解析出多选项，后台编辑器会自动落成下拉框并带入默认值。
+- 前台与后台默认显示名称现在优先使用 `description` 推导的人话标题，如“设置比例”“分辨率”“第三方/官方切换”。
+- 长 `description` 采用“短标题 + 完整说明”策略：标题给用户看，完整原文保留在说明区。
 - 2026-03-25 21:44：已修复线上后台页 `Server Components render` 报错。
 - 当前已确认生产数据库 baseline 已登记，Vercel Production 已重新部署到最新代码。
 - 当前已回归通过：`/admin/apps`、`/admin/apps/new`、`/admin/apps/[code]`、`/admin/categories`、`/admin/settings/integrations`。
@@ -65,6 +74,15 @@ npm run build:vercel
 npm run build
 npm run start
 ```
+
+## RunningHub API 导入约定
+
+- `fieldData` 形如 `[[values], { default }]` 或对象数组时，默认按下拉字段导入。
+- 下拉选项的提交值优先取 `index`，显示文案优先取 `description`，其次回退到 `label` / `name` / `index`。
+- 字段显示名称优先取 `description` 的短标题：
+  - 在 `【`、`[` 或换行前截断
+  - 例如 `上传图像 1 【选填...】` 会显示为 `上传图像 1`
+- 完整 `description` 不丢失，继续作为字段说明展示给用户。
 
 ## 部署说明
 

@@ -14,6 +14,10 @@ export function sortTasksByNewest(tasks: TaskRecord[]) {
   return [...tasks].sort((a, b) => Date.parse(b.createdAtIso) - Date.parse(a.createdAtIso));
 }
 
+export function mergeTaskIntoList(tasks: TaskRecord[], task: TaskRecord) {
+  return sortTasksByNewest([task, ...tasks.filter((item) => item.id !== task.id)]);
+}
+
 export function resolveNextSelectedTaskId(
   tasks: TaskRecord[],
   currentTaskId?: string | null,
@@ -76,6 +80,10 @@ export function useAppTasks(initialTasks: TaskRecord[], options: UseAppTasksOpti
   }, [fetchUrl, initialTaskId]);
 
   useEffect(() => {
+    if (typeof EventSource === "undefined") {
+      return;
+    }
+
     const es = new EventSource("/api/internal/sse/all");
     esRef.current = es;
 
@@ -113,6 +121,10 @@ export function useAppTasks(initialTasks: TaskRecord[], options: UseAppTasksOpti
     tasks,
     selectedTaskId,
     setSelectedTaskId,
+    upsertTask: (task: TaskRecord) => {
+      setTasks((current) => mergeTaskIntoList(current, task));
+      setSelectedTaskId(task.id);
+    },
     connected,
     refreshTasks,
   };

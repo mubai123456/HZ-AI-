@@ -40,6 +40,8 @@ import { shouldPersistTaskOutputAssets } from "@/lib/task-output-storage";
 import { getResolvedIntegrationSettings } from "@/lib/settings";
 import { emitTaskUpdate } from "@/lib/sse";
 import { allocateNextSiteTaskNo } from "@/lib/site-task-no";
+import { isPermanentDispatchError, sanitizeUserFacingError } from "@/lib/user-facing-errors";
+import type { TaskSubmissionState } from "@/lib/types";
 
 const TASK_TIMEOUT_MINUTES = 30;
 const PENDING_TASK_PREFIX = "PENDING-";
@@ -419,9 +421,13 @@ async function getRunningTaskCountByChannel() {
   return counts;
 }
 
-async function markDispatchFailure(task: QueuedTaskForDispatch, errorMessage: string) {
+async function markDispatchFailure(
+  task: QueuedTaskForDispatch,
+  errorMessage: string,
+  options?: { immediateFail?: boolean },
+) {
   const nextRetryCount = task.retryCount + 1;
-  const exceedsRetryLimit = nextRetryCount >= task.maxRetries;
+  const exceedsRetryLimit = options?.immediateFail ? true : nextRetryCount >= task.maxRetries;
 
   await prisma.task.update({
     where: { id: task.id },
@@ -542,19 +548,26 @@ async function dispatchQueuedTasks() {
   for (const task of queuedTasks) {
     const eligibleChannels = getAllowedChannelsForApp(task.app, integrationSettings.runninghubChannels);
     if (eligibleChannels.length === 0) {
+      await markDispatchFailure(task, "当前应用未配置可用的 RunningHub 通道。", {
+        immediateFail: true,
+      });
       continue;
     }
 
-    const candidate = eligibleChannels.find((channel) => {
-      const auth = buildRunningHubAuth(channel, integrationSettings.runninghubBaseUrl);
-      if (!auth) {
-        return false;
-      }
+    const channelsWithCapacity = eligibleChannels.filter(
+      (channel) => (runningCounts.get(channel.code) ?? 0) < channel.concurrencyLimit,
+    );
+    if (channelsWithCapacity.length === 0) {
+      continue;
+    }
 
-      return (runningCounts.get(channel.code) ?? 0) < channel.concurrencyLimit;
-    });
-
+    const candidate = channelsWithCapacity.find(
+      (channel) => Boolean(buildRunningHubAuth(channel, integrationSettings.runninghubBaseUrl)),
+    );
     if (!candidate) {
+      await markDispatchFailure(task, "RunningHub 通道未配置完成，请联系管理员检查集成设置。", {
+        immediateFail: true,
+      });
       continue;
     }
 
@@ -565,9 +578,8 @@ async function dispatchQueuedTasks() {
 
     const auth = buildRunningHubAuth(candidate, integrationSettings.runninghubBaseUrl);
     if (!auth) {
-      await prisma.task.update({
-        where: { id: task.id },
-        data: { providerStatus: null },
+      await markDispatchFailure(task, "RunningHub 通道未配置完成，请联系管理员检查集成设置。", {
+        immediateFail: true,
       });
       continue;
     }
@@ -576,9 +588,10 @@ async function dispatchQueuedTasks() {
       await dispatchTaskToChannel(task, candidate, auth);
       runningCounts.set(candidate.code, (runningCounts.get(candidate.code) ?? 0) + 1);
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "任务提交失败：无法连接到 RunningHub";
-      await markDispatchFailure(task, errorMessage);
+      console.error(`[task-queue] dispatch error for task ${task.id}:`, error);
+      await markDispatchFailure(task, sanitizeUserFacingError(error, "submit"), {
+        immediateFail: isPermanentDispatchError(error),
+      });
     }
   }
 
@@ -902,7 +915,12 @@ export interface SubmitTaskInput {
 
 export async function submitNewTask(
   input: SubmitTaskInput,
-): Promise<{ taskId: string; taskNo: string }> {
+): Promise<{
+  taskId: string;
+  taskNo: string;
+  submissionState: TaskSubmissionState;
+  message?: string | null;
+}> {
   const { appCode, formData, selectedPromptTemplateId, userId } = input;
 
   const app = await prisma.app.findUnique({ where: { code: appCode } });
@@ -1011,11 +1029,32 @@ export async function submitNewTask(
 
   const latestTask = await prisma.task.findUnique({
     where: { id: task.id },
-    select: { id: true, taskNo: true },
+    select: {
+      id: true,
+      taskNo: true,
+      status: true,
+      providerTaskId: true,
+      providerErrorMessage: true,
+      queuePosition: true,
+    },
   });
   if (!latestTask) {
     throw new Error("Task disappeared after submission");
   }
 
-  return { taskId: latestTask.id, taskNo: latestTask.taskNo };
+  const submissionState: TaskSubmissionState =
+    latestTask.status === "FAILED" ? "FAILED" : latestTask.providerTaskId ? "RUNNING" : "QUEUED";
+  const message =
+    submissionState === "FAILED"
+      ? latestTask.providerErrorMessage ?? "任务提交失败，请稍后重试。"
+      : submissionState === "QUEUED"
+        ? "任务已进入本地队列，等待派发到 RunningHub。"
+        : "任务已提交到 RunningHub，结果会自动刷新。";
+
+  return {
+    taskId: latestTask.id,
+    taskNo: latestTask.taskNo,
+    submissionState,
+    message,
+  };
 }
