@@ -29,7 +29,8 @@ const runninghubChannels: RunningHubChannelConfig[] = [
   {
     code: "consumer",
     name: "Consumer",
-    apiKeyEnvName: "RUNNINGHUB_API_KEY",
+    credentialMode: "ENV",
+    apiKey: "RUNNINGHUB_API_KEY",
     concurrencyLimit: 5,
     priority: 1,
     enabled: true,
@@ -37,7 +38,8 @@ const runninghubChannels: RunningHubChannelConfig[] = [
   {
     code: "enterprise",
     name: "Enterprise",
-    apiKeyEnvName: "RUNNINGHUB_API_KEY_ENTERPRISE",
+    credentialMode: "ENV",
+    apiKey: "RUNNINGHUB_API_KEY_ENTERPRISE",
     concurrencyLimit: 100,
     priority: 2,
     enabled: true,
@@ -305,6 +307,12 @@ describe("AppFormEditor", () => {
         value: JSON.stringify({
           nodeInfoList: [
             {
+              nodeId: "2",
+              fieldName: "image",
+              fieldValue: "hash-1.png",
+              description: "上传图像 1 【选填,一张图不上传默认是文生图】",
+            },
+            {
               nodeId: "10",
               fieldName: "prompt",
               fieldValue: "",
@@ -314,7 +322,7 @@ describe("AppFormEditor", () => {
               nodeId: "11",
               fieldName: "aspectRatio",
               fieldValue: "3:4",
-              description: "比例",
+              description: "设置比例",
               fieldData: JSON.stringify([["1:1", "3:4", "16:9"], { default: "1:1" }]),
             },
             {
@@ -323,18 +331,29 @@ describe("AppFormEditor", () => {
               fieldValue: "2k",
               description: "分辨率",
               fieldData: JSON.stringify([
-                { name: "2k", index: "2k", description: "2K", fastIndex: 1 },
-                { name: "4k", index: "4k", description: "4K", fastIndex: 2 },
+                { name: "1k", index: "1k", description: "", fastIndex: 1 },
+                { name: "2k", index: "2k", description: "", fastIndex: 2 },
+                { name: "4k", index: "4k", description: "", fastIndex: 3 },
               ]),
             },
             {
               nodeId: "13",
               fieldName: "channel",
-              fieldValue: "ecommerce",
-              description: "通道",
+              fieldValue: "Third-party",
+              description: "第三方/官方切换",
               fieldData: JSON.stringify([
-                { name: "ecommerce", index: "ecommerce", description: "电商", fastIndex: 1 },
-                { name: "portrait", index: "portrait", description: "人像", fastIndex: 2 },
+                {
+                  name: "Third-party",
+                  index: "Third-party",
+                  description: "第三方（低价渠道版）",
+                  fastIndex: 1,
+                },
+                {
+                  name: "Official",
+                  index: "Official",
+                  description: "官方（官方稳定版）",
+                  fastIndex: 2,
+                },
               ]),
             },
           ],
@@ -348,22 +367,30 @@ describe("AppFormEditor", () => {
       expect(screen.getAllByDisplayValue("下拉选择")).toHaveLength(3);
     });
 
+    expect(screen.getByDisplayValue("上传图像 1")).toBeInTheDocument();
+    expect(screen.getAllByDisplayValue("输入文本").length).toBeGreaterThan(0);
+    expect(screen.getAllByDisplayValue("设置比例").length).toBeGreaterThan(0);
+    expect(screen.getAllByDisplayValue("分辨率").length).toBeGreaterThan(0);
+    expect(screen.getAllByDisplayValue("第三方/官方切换").length).toBeGreaterThan(0);
+
     const textareaValues = screen
       .getAllByRole("textbox")
       .map((element) => (element as HTMLTextAreaElement).value);
     expect(textareaValues).toEqual(
       expect.arrayContaining([
         expect.stringContaining("1:1"),
-        expect.stringContaining("2K:2k"),
-        expect.stringContaining("电商:ecommerce"),
+        expect.stringContaining("1k:1k"),
+        expect.stringContaining("第三方（低价渠道版）:Third-party"),
+        expect.stringContaining("上传图像 1 【选填,一张图不上传默认是文生图】"),
       ]),
     );
     expect(screen.getByDisplayValue("1:1")).toBeInTheDocument();
     expect(screen.getByDisplayValue("2k")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("ecommerce")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Third-party")).toBeInTheDocument();
     expect(screen.getByTestId("node-hidden-toggle-1")).toBeChecked();
     expect(screen.getByTestId("node-hidden-toggle-2")).toBeChecked();
     expect(screen.getByTestId("node-hidden-toggle-3")).toBeChecked();
+    expect(screen.getByTestId("node-hidden-toggle-4")).toBeChecked();
   });
 
   it("removes deprecated display fields and saves showcase images", async () => {

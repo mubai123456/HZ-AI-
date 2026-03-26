@@ -15,13 +15,15 @@ export type ClaimStatus = "ACTIVE" | "RESET_BY_ADMIN" | "DELIVERY_FAILED";
 export type AuditAction = "UPLOAD" | "COMPLETE" | "CLAIM" | "RESET" | "OFF_SHELF" | "QUOTA_CHANGE";
 export type PromptTemplateScopeMode = "GLOBAL" | "LIMITED";
 export type PromptTemplateMediaType = "IMAGE" | "VIDEO";
+export type ChannelCredentialMode = "DIRECT" | "ENV";
 
 export type InputFieldType = "image" | "textarea" | "select";
 
 export interface RunningHubChannelConfig {
   code: string;
   name: string;
-  apiKeyEnvName: string;
+  credentialMode: ChannelCredentialMode;
+  apiKey: string;
   concurrencyLimit: number;
   priority: number;
   enabled: boolean;

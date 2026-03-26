@@ -1068,7 +1068,7 @@ export function AppFormEditor({
 
           <div className="mt-4 rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-4">
             <div className="flex flex-wrap items-center gap-4">
-              <span className="text-sm font-medium text-slate-800">RunningHub 通道</span>
+              <span className="text-sm font-medium text-slate-800">算力通道</span>
               <label className="inline-flex items-center gap-2 text-sm text-slate-700">
                 <input
                   type="radio"
@@ -1378,7 +1378,7 @@ export function AppFormEditor({
             <div>
               <h2 className="text-xl font-semibold text-slate-950">API / 节点配置</h2>
               <p className="mt-1 text-sm text-slate-500">
-                支持从 RunningHub curl 或 JSON 自动导入应用 ID、节点列表和顶层参数。
+                支持从 API curl 或 JSON 自动导入应用 ID、节点列表和顶层参数。
               </p>
             </div>
             <div className="flex gap-3">

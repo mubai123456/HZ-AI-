@@ -494,7 +494,7 @@ export function SubmitForm({ app, onSubmitSuccess, reuseTaskRequest }: Props) {
       }
 
       if (data.submissionState === "FAILED") {
-        setSubmitError(data.message ?? "任务未能提交到 RunningHub，请联系管理员检查配置。");
+        setSubmitError(data.message ?? "任务未能提交到算力通道，请联系管理员检查配置。");
         return;
       }
 

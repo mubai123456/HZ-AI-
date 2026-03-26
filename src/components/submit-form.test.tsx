@@ -9,7 +9,7 @@ const demoApp: AppDefinition = {
   code: "demo-app",
   name: "Demo App",
   description: "",
-  provider: "RUNNINGHUB",
+  provider: "CHANNEL",
   providerAppId: "demo-app",
   enabled: true,
   shareResults: false,
@@ -427,7 +427,7 @@ describe("SubmitForm", () => {
     expect(screen.getByRole("combobox")).toHaveValue("2k");
   });
 
-  it("uses human-readable field labels and option labels from imported RunningHub semantics", () => {
+  it("uses human-readable field labels and option labels from imported imported semantics", () => {
     render(<SubmitForm app={runningHubSemanticApp} onSubmitSuccess={vi.fn()} />);
 
     expect(screen.getAllByText("设置比例").length).toBeGreaterThan(0);

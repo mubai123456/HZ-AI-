@@ -71,13 +71,13 @@ describe("admin integrations settings route", () => {
   it("returns merged integration settings", async () => {
     getCurrentSessionMock.mockResolvedValue({ sub: "admin-1", role: "ADMIN" });
     getResolvedIntegrationSettingsMock.mockResolvedValue({
-      runninghubBaseUrl: "https://rh.example.com",
       runninghubDefaultWebappId: "webapp-1",
       runninghubChannels: [
         {
           code: "consumer",
-          name: "消费级 API",
-          apiKeyEnvName: "RUNNINGHUB_API_KEY",
+          name: "标准通道",
+          credentialMode: "ENV",
+          apiKey: "RUNNINGHUB_API_KEY",
           concurrencyLimit: 5,
           priority: 1,
           enabled: true,
@@ -103,10 +103,46 @@ describe("admin integrations settings route", () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data.runninghubBaseUrl).toBe("https://rh.example.com");
+    expect(data.runninghubBaseUrl).toBeUndefined();
     expect(data.runninghubChannels).toHaveLength(1);
     expect(data.feishuAppToken).toBe("db-app-token");
     expect(data.columnMappings).toEqual([{ taskField: "taskNo", feishuColumn: "Task Number" }]);
+  });
+
+  it("masks direct API credentials when loading admin settings", async () => {
+    getCurrentSessionMock.mockResolvedValue({ sub: "admin-1", role: "ADMIN" });
+    getResolvedIntegrationSettingsMock.mockResolvedValue({
+      runninghubBaseUrl: "https://rh.example.com",
+      runninghubDefaultWebappId: "webapp-1",
+      runninghubChannels: [
+        {
+          code: "enterprise",
+          name: "高级通道",
+          credentialMode: "DIRECT",
+          apiKey: "enterprise-live-key",
+          concurrencyLimit: 10,
+          priority: 1,
+          enabled: true,
+        },
+      ],
+      feishuBaseUrl: "https://open.feishu.cn",
+    });
+    getResolvedFeishuSyncSettingsMock.mockResolvedValue({
+      feishuAppToken: "",
+      feishuTableId: "",
+      columnMappings: [],
+    });
+    resolveFeishuSyncConfigMock.mockReturnValue({
+      target: { appToken: "", tableId: "" },
+      globalMapping: {},
+    });
+    mappingRecordToEntriesMock.mockReturnValue([]);
+
+    const response = await GET();
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.runninghubChannels[0]?.apiKey).toBe("ente***-key");
   });
 
   it("persists integration settings with structured mappings and triggers backfill", async () => {
@@ -125,21 +161,22 @@ describe("admin integrations settings route", () => {
     upsertMock.mockResolvedValue(undefined);
     backfillMock.mockResolvedValue({ processed: 3 });
     getResolvedIntegrationSettingsMock.mockResolvedValue({
-      runninghubBaseUrl: "https://rh.example.com",
       runninghubDefaultWebappId: "webapp-1",
       runninghubChannels: [
         {
           code: "consumer",
-          name: "消费级 API",
-          apiKeyEnvName: "RUNNINGHUB_API_KEY",
+          name: "标准通道",
+          credentialMode: "ENV",
+          apiKey: "RUNNINGHUB_API_KEY",
           concurrencyLimit: 5,
           priority: 1,
           enabled: true,
         },
         {
           code: "enterprise",
-          name: "企业级 API",
-          apiKeyEnvName: "RUNNINGHUB_API_KEY_ENTERPRISE",
+          name: "高级通道",
+          credentialMode: "DIRECT",
+          apiKey: "enterprise-live-key",
           concurrencyLimit: 100,
           priority: 2,
           enabled: true,
@@ -162,21 +199,22 @@ describe("admin integrations settings route", () => {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          runninghubBaseUrl: "https://rh.example.com",
           runninghubDefaultWebappId: "webapp-1",
           runninghubChannels: [
             {
               code: "consumer",
-              name: "消费级 API",
-              apiKeyEnvName: "RUNNINGHUB_API_KEY",
+              name: "标准通道",
+              credentialMode: "ENV",
+              apiKey: "RUNNINGHUB_API_KEY",
               concurrencyLimit: 5,
               priority: 1,
               enabled: true,
             },
             {
               code: "enterprise",
-              name: "企业级 API",
-              apiKeyEnvName: "RUNNINGHUB_API_KEY_ENTERPRISE",
+              name: "高级通道",
+              credentialMode: "DIRECT",
+              apiKey: "enterprise-live-key",
               concurrencyLimit: 100,
               priority: 2,
               enabled: true,
@@ -196,21 +234,22 @@ describe("admin integrations settings route", () => {
     const data = await response.json();
 
     expect(saveIntegrationSettingsMock).toHaveBeenCalledWith({
-      runninghubBaseUrl: "https://rh.example.com",
       runninghubDefaultWebappId: "webapp-1",
       runninghubChannels: [
         {
           code: "consumer",
-          name: "消费级 API",
-          apiKeyEnvName: "RUNNINGHUB_API_KEY",
+          name: "标准通道",
+          credentialMode: "ENV",
+          apiKey: "RUNNINGHUB_API_KEY",
           concurrencyLimit: 5,
           priority: 1,
           enabled: true,
         },
         {
           code: "enterprise",
-          name: "企业级 API",
-          apiKeyEnvName: "RUNNINGHUB_API_KEY_ENTERPRISE",
+          name: "高级通道",
+          credentialMode: "DIRECT",
+          apiKey: "enterprise-live-key",
           concurrencyLimit: 100,
           priority: 2,
           enabled: true,

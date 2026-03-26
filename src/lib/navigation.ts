@@ -73,7 +73,7 @@ function buildAdminNavigationGroups(
       label: labels.settingsGroup,
       items: [
         { href: "/admin/settings/site", label: labels.siteSettings, description: "维护站点名称、品牌文案和导航命名" },
-        { href: "/admin/settings/integrations", label: labels.integrationSettings, description: "统一管理 RunningHub、飞书和同步目标" },
+        { href: "/admin/settings/integrations", label: labels.integrationSettings, description: "统一管理算力通道、飞书和同步目标" },
         { href: "/admin/settings/secrets", label: labels.secretStatus, description: "只读查看密钥状态与配置来源" },
       ],
     },

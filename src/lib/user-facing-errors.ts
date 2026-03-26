@@ -26,7 +26,7 @@ export function isPermanentDispatchError(error: unknown) {
     "Task submit snapshot is missing nodeInfoList",
     "App not found",
     "App is not enabled",
-    "当前应用未配置可用的 RunningHub 通道",
+    "当前应用未配置可用的算力通道",
   ].some((keyword) => message.includes(keyword));
 }
 
@@ -38,35 +38,35 @@ export function sanitizeUserFacingError(error: unknown, context: ErrorContext) {
     message.includes("No RunningHub channel configured") ||
     message.includes("RunningHub channel not found")
   ) {
-    return "RunningHub 通道未配置完成，请联系管理员检查集成设置。";
+    return "算力通道配置未完成，请联系管理员检查集成设置。";
   }
 
   if (message.includes("Task submit snapshot is missing nodeInfoList")) {
     return "当前应用的提交流程配置不完整，请联系管理员检查应用映射。";
   }
 
-  if (message.includes("当前应用未配置可用的 RunningHub 通道")) {
-    return "当前应用未配置可用的 RunningHub 通道，请联系管理员检查应用设置。";
+  if (message.includes("当前应用未配置可用的算力通道")) {
+    return "当前应用未配置可用的算力通道，请联系管理员检查应用设置。";
   }
 
   if (message.includes("RunningHub API error")) {
     if (context === "upload") {
-      return "图片上传到 RunningHub 失败，请稍后重试。";
+      return "图片上传到算力通道失败，请稍后重试。";
     }
 
     if (context === "poll") {
-      return "暂时无法从 RunningHub 获取最新状态，请稍后再试。";
+      return "暂时无法从算力通道获取最新状态，请稍后再试。";
     }
 
-    return "任务提交到 RunningHub 失败，请稍后重试。";
+    return "任务提交到算力通道失败，请稍后重试。";
   }
 
   if (message.startsWith("Upload failed")) {
-    return "图片上传到 RunningHub 失败，请稍后重试。";
+    return "图片上传到算力通道失败，请稍后重试。";
   }
 
   if (message.includes("Task has no providerTaskId yet")) {
-    return "任务仍在本地队列中，尚未派发到 RunningHub。";
+    return "任务仍在本地队列中，尚未派发到算力通道。";
   }
 
   if (message.includes("Task not found")) {

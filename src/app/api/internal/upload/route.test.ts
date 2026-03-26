@@ -20,7 +20,7 @@ describe("internal upload route", () => {
     vi.clearAllMocks();
   });
 
-  it("sanitizes sensitive RunningHub credential errors before returning them to the client", async () => {
+  it("sanitizes sensitive provider credential errors before returning them to the client", async () => {
     getCurrentSessionMock.mockResolvedValue({ sub: "user-1", role: "USER" });
     uploadFileMock.mockRejectedValue(
       new Error("Missing RunningHub API key: a5fa88f5502f4fc0820a4e9f0c32855e"),
@@ -37,6 +37,6 @@ describe("internal upload route", () => {
 
     expect(response.status).toBe(500);
     expect(data.error).not.toContain("a5fa88f5502f4fc0820a4e9f0c32855e");
-    expect(data.error).toBe("RunningHub 通道未配置完成，请联系管理员检查集成设置。");
+    expect(data.error).toBe("算力通道配置未完成，请联系管理员检查集成设置。");
   });
 });

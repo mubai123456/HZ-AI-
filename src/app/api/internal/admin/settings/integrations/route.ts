@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { ZodError } from "zod";
 
 import { backfillFeishuSyncForTasks } from "@/lib/feishu-sync-jobs";
 import {
@@ -21,6 +22,18 @@ import {
   saveIntegrationSettings,
 } from "@/lib/settings";
 import { getCurrentSession } from "@/lib/session";
+
+function maskStoredCredential(value: string) {
+  if (!value) {
+    return "";
+  }
+
+  if (value.length <= 8) {
+    return `${value.slice(0, 1)}***${value.slice(-1)}`;
+  }
+
+  return `${value.slice(0, 4)}***${value.slice(-4)}`;
+}
 
 export async function GET() {
   const session = await getCurrentSession();
@@ -49,7 +62,15 @@ export async function GET() {
     });
 
     return NextResponse.json({
-      ...integrationSettings,
+      runninghubDefaultWebappId: integrationSettings.runninghubDefaultWebappId,
+      runninghubChannels: integrationSettings.runninghubChannels.map((channel) => ({
+        ...channel,
+        apiKey:
+          channel.credentialMode === "DIRECT" && channel.apiKey
+            ? maskStoredCredential(channel.apiKey)
+            : channel.apiKey,
+      })),
+      feishuBaseUrl: integrationSettings.feishuBaseUrl,
       feishuAppToken: resolvedFeishu.target.appToken,
       feishuTableId: resolvedFeishu.target.tableId,
       columnMappings: mappingRecordToEntries(
@@ -69,6 +90,39 @@ export async function GET() {
       { status: 500 },
     );
   }
+}
+
+function formatIntegrationValidationError(error: ZodError) {
+  return error.issues
+    .map((issue) => {
+      const channelIndex =
+        issue.path[0] === "runninghubChannels" && typeof issue.path[1] === "number"
+          ? Number(issue.path[1]) + 1
+          : null;
+
+      if (channelIndex && issue.path[2] === "apiKey") {
+        return `通道 ${channelIndex} 的 API 凭据校验失败：${issue.message}`;
+      }
+
+      if (channelIndex && issue.path[2] === "name") {
+        return `通道 ${channelIndex} 的名称不能为空`;
+      }
+
+      if (channelIndex && issue.path[2] === "code") {
+        return `通道 ${channelIndex} 的编码不能为空`;
+      }
+
+      if (issue.path[0] === "runninghubDefaultWebappId") {
+        return "默认 WebApp ID 不能为空";
+      }
+
+      if (issue.path[0] === "feishuBaseUrl") {
+        return "飞书基础地址格式不正确";
+      }
+
+      return issue.message;
+    })
+    .join("；");
 }
 
 export async function PUT(request: Request) {
@@ -108,12 +162,22 @@ export async function PUT(request: Request) {
       actorId: session.sub,
       mode: "ALL",
     });
+    const latestIntegrationSettings = await getResolvedIntegrationSettings();
+    const latestFeishuSettings = await getResolvedFeishuSyncSettings();
 
     return NextResponse.json({
       ok: true,
       settings: {
-        ...(await getResolvedIntegrationSettings()),
-        ...(await getResolvedFeishuSyncSettings()),
+        runninghubDefaultWebappId: latestIntegrationSettings.runninghubDefaultWebappId,
+        runninghubChannels: latestIntegrationSettings.runninghubChannels.map((channel) => ({
+          ...channel,
+          apiKey:
+            channel.credentialMode === "DIRECT" && channel.apiKey
+              ? maskStoredCredential(channel.apiKey)
+              : channel.apiKey,
+        })),
+        feishuBaseUrl: latestIntegrationSettings.feishuBaseUrl,
+        ...latestFeishuSettings,
       },
       backfill,
     });
@@ -123,6 +187,12 @@ export async function PUT(request: Request) {
       return NextResponse.json(
         { error: buildSchemaMismatchUserMessage("集成设置") },
         { status: 500 },
+      );
+    }
+    if (error instanceof ZodError) {
+      return NextResponse.json(
+        { error: formatIntegrationValidationError(error) || "集成设置校验失败" },
+        { status: 400 },
       );
     }
     const message = error instanceof Error ? error.message : "保存失败";

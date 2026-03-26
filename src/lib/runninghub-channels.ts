@@ -25,11 +25,38 @@ export function buildLegacyRunningHubChannel(
   return {
     code: LEGACY_RUNNINGHUB_CHANNEL_CODE,
     name: LEGACY_RUNNINGHUB_CHANNEL_NAME,
-    apiKeyEnvName: LEGACY_RUNNINGHUB_API_ENV,
+    credentialMode: "ENV",
+    apiKey: LEGACY_RUNNINGHUB_API_ENV,
     concurrencyLimit: normalizePositiveInteger(concurrencyLimit, env.TASK_MAX_CONCURRENCY, 1000),
     priority: 1,
     enabled: true,
   };
+}
+
+function normalizeCredential(record: Record<string, unknown>) {
+  const credentialModeRaw = normalizeText(record.credentialMode).toUpperCase();
+  const apiKey = normalizeText(record.apiKey);
+
+  if (apiKey) {
+    if (credentialModeRaw === "DIRECT") {
+      return { credentialMode: "DIRECT" as const, apiKey };
+    }
+
+    if (credentialModeRaw === "ENV" && isValidEnvKeyName(apiKey)) {
+      return { credentialMode: "ENV" as const, apiKey };
+    }
+  }
+
+  const legacyApiKeyEnvName = normalizeText(record.apiKeyEnvName);
+  if (!legacyApiKeyEnvName) {
+    return null;
+  }
+
+  if (isValidEnvKeyName(legacyApiKeyEnvName)) {
+    return { credentialMode: "ENV" as const, apiKey: legacyApiKeyEnvName };
+  }
+
+  return { credentialMode: "DIRECT" as const, apiKey: legacyApiKeyEnvName };
 }
 
 export function normalizeRunningHubChannels(
@@ -51,8 +78,8 @@ export function normalizeRunningHubChannels(
       const record = item as Record<string, unknown>;
       const code = normalizeText(record.code);
       const name = normalizeText(record.name);
-      const apiKeyEnvName = normalizeText(record.apiKeyEnvName);
-      if (!code || !name || !apiKeyEnvName || !isValidEnvKeyName(apiKeyEnvName) || seenCodes.has(code)) {
+      const credential = normalizeCredential(record);
+      if (!code || !name || !credential || seenCodes.has(code)) {
         return null;
       }
       seenCodes.add(code);
@@ -60,7 +87,8 @@ export function normalizeRunningHubChannels(
       return {
         code,
         name,
-        apiKeyEnvName,
+        credentialMode: credential.credentialMode,
+        apiKey: credential.apiKey,
         concurrencyLimit: normalizePositiveInteger(
           record.concurrencyLimit,
           fallbackChannel.concurrencyLimit,
@@ -102,10 +130,20 @@ export function getRunningHubChannelByCode(
   return channels.find((channel) => channel.code === code) ?? null;
 }
 
-export function resolveRunningHubApiKey(envKey: string) {
-  return process.env[envKey]?.trim() ?? "";
+export function resolveRunningHubApiKey(channel: Pick<RunningHubChannelConfig, "credentialMode" | "apiKey">) {
+  if (channel.credentialMode === "DIRECT") {
+    return channel.apiKey.trim();
+  }
+
+  return process.env[channel.apiKey]?.trim() ?? "";
 }
 
 export function getRunningHubChannelSecretKeys(channels: RunningHubChannelConfig[]) {
-  return Array.from(new Set(channels.map((channel) => channel.apiKeyEnvName)));
+  return Array.from(
+    new Set(
+      channels
+        .filter((channel) => channel.credentialMode === "ENV")
+        .map((channel) => channel.apiKey),
+    ),
+  );
 }

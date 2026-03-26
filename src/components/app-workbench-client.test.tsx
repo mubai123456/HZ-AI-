@@ -49,7 +49,7 @@ vi.mock("@/components/left-panel", () => ({
           taskId: "task-2",
           taskNo: "PENDING-WB-000002",
           submissionState: "QUEUED",
-          message: "任务已进入本地队列，等待派发到 RunningHub。",
+          message: "任务已进入本地队列，等待派发到算力通道。",
           task: createTask({
             id: "task-2",
             siteTaskNo: "WB-000002",

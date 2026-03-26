@@ -39,7 +39,7 @@ const MANAGEMENT_LINKS: AdminOverview["managementLinks"] = [
   },
   {
     title: "集成设置",
-    description: "统一管理 RunningHub、飞书和同步目标。",
+    description: "统一管理算力通道、飞书和同步目标。",
     href: "/admin/settings/integrations",
   },
   {

@@ -1,6 +1,10 @@
 import { PageTemplate } from "@/components/page-template";
 import { getSecretStatusItems } from "@/lib/settings";
 
+function getSourceLabel(source: "env" | "settings") {
+  return source === "settings" ? "集成设置" : "环境变量";
+}
+
 export default async function SecretStatusPage() {
   const items = await getSecretStatusItems();
 
@@ -8,7 +12,7 @@ export default async function SecretStatusPage() {
     <PageTemplate
       eyebrow="密钥状态"
       title="密钥状态"
-      description="敏感密钥继续由环境变量优先管理，这个页面只负责透明展示状态，不提供明文编辑。"
+      description="敏感凭据统一做掩码展示，这个页面只负责透明展示状态，不提供明文编辑。"
       contentClassName="mx-auto max-w-5xl space-y-6"
     >
       <section className="grid gap-4 md:grid-cols-2">
@@ -34,7 +38,7 @@ export default async function SecretStatusPage() {
 
             <div className="mt-4 rounded-[16px] border border-slate-200 bg-slate-50 px-4 py-3">
               <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">来源</p>
-              <p className="mt-1 text-sm font-medium text-slate-800">{item.source.toUpperCase()}</p>
+              <p className="mt-1 text-sm font-medium text-slate-800">{getSourceLabel(item.source)}</p>
             </div>
 
             <div className="mt-3 rounded-[16px] border border-slate-200 bg-slate-50 px-4 py-3">

@@ -59,7 +59,7 @@ function buildRunningHubAuth(
   channel: RunningHubChannelConfig,
   baseUrl: string,
 ): RunningHubAuthConfig | null {
-  const apiKey = resolveRunningHubApiKey(channel.apiKeyEnvName);
+  const apiKey = resolveRunningHubApiKey(channel);
   if (!apiKey) {
     return null;
   }
@@ -363,7 +363,7 @@ async function resolveRunningHubAuthForTask(task: {
 
   const auth = buildRunningHubAuth(channel, integrationSettings.runninghubBaseUrl);
   if (!auth) {
-    throw new Error(`Missing RunningHub API key: ${channel.apiKeyEnvName}`);
+    throw new Error(`Missing RunningHub API key: ${channel.apiKey}`);
   }
 
   return { channel, auth };
@@ -548,7 +548,7 @@ async function dispatchQueuedTasks() {
   for (const task of queuedTasks) {
     const eligibleChannels = getAllowedChannelsForApp(task.app, integrationSettings.runninghubChannels);
     if (eligibleChannels.length === 0) {
-      await markDispatchFailure(task, "当前应用未配置可用的 RunningHub 通道。", {
+      await markDispatchFailure(task, "当前应用未配置可用的算力通道。", {
         immediateFail: true,
       });
       continue;
@@ -565,7 +565,7 @@ async function dispatchQueuedTasks() {
       (channel) => Boolean(buildRunningHubAuth(channel, integrationSettings.runninghubBaseUrl)),
     );
     if (!candidate) {
-      await markDispatchFailure(task, "RunningHub 通道未配置完成，请联系管理员检查集成设置。", {
+      await markDispatchFailure(task, "算力通道配置未完成，请联系管理员检查集成设置。", {
         immediateFail: true,
       });
       continue;
@@ -578,7 +578,7 @@ async function dispatchQueuedTasks() {
 
     const auth = buildRunningHubAuth(candidate, integrationSettings.runninghubBaseUrl);
     if (!auth) {
-      await markDispatchFailure(task, "RunningHub 通道未配置完成，请联系管理员检查集成设置。", {
+      await markDispatchFailure(task, "算力通道配置未完成，请联系管理员检查集成设置。", {
         immediateFail: true,
       });
       continue;
@@ -621,7 +621,7 @@ export async function pumpQueuedTasks(): Promise<PumpResult[]> {
       const isStale = !task.providerTaskId || task.createdAt.getTime() + timeoutMs < now;
       if (isStale) {
         const reason = !task.providerTaskId
-          ? "任务提交失败：未获得 RunningHub 任务 ID"
+          ? "任务提交失败：未获得算力通道任务 ID"
           : `任务超时：运行时间超过 ${TASK_TIMEOUT_MINUTES} 分钟`;
 
         if (task.retryCount < task.maxRetries) {
@@ -1048,8 +1048,8 @@ export async function submitNewTask(
     submissionState === "FAILED"
       ? latestTask.providerErrorMessage ?? "任务提交失败，请稍后重试。"
       : submissionState === "QUEUED"
-        ? "任务已进入本地队列，等待派发到 RunningHub。"
-        : "任务已提交到 RunningHub，结果会自动刷新。";
+        ? "任务已进入本地队列，等待派发到算力通道。"
+        : "任务已提交到算力通道，结果会自动刷新。";
 
   return {
     taskId: latestTask.id,

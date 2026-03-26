@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { env } from "@/lib/env";
@@ -7,7 +8,6 @@ import {
   logPrismaRuntimeDiagnostic,
 } from "@/lib/prisma-runtime-diagnostics";
 import {
-  getRunningHubChannelSecretKeys,
   normalizeRunningHubChannels,
 } from "@/lib/runninghub-channels";
 import { isValidEnvKeyName } from "@/lib/env-key-names";
@@ -109,23 +109,37 @@ export const siteSettingsUpdateSchema = z.object({
 });
 
 export const integrationSettingsUpdateSchema = z.object({
-  runninghubBaseUrl: z.string().trim().url(),
+  runninghubBaseUrl: z.string().trim().url().optional(),
   runninghubDefaultWebappId: z.string().trim().min(1).max(64),
   runninghubChannels: z
     .array(
-      z.object({
-        code: z.string().trim().min(1).max(64),
-        name: z.string().trim().min(1).max(80),
-        apiKeyEnvName: z
-          .string()
-          .trim()
-          .min(1)
-          .max(128)
-          .refine(isValidEnvKeyName, "API Key Env 只能填写环境变量名，例如 RUNNINGHUB_API_KEY"),
-        concurrencyLimit: z.coerce.number().int().min(1).max(1000),
-        priority: z.coerce.number().int().min(1).max(999),
-        enabled: z.boolean(),
-      }),
+      z
+        .object({
+          code: z.string().trim().min(1).max(64),
+          name: z.string().trim().min(1).max(80),
+          credentialMode: z.enum(["DIRECT", "ENV"]),
+          apiKey: z.string().trim().max(128),
+          concurrencyLimit: z.coerce.number().int().min(1).max(1000),
+          priority: z.coerce.number().int().min(1).max(999),
+          enabled: z.boolean(),
+        })
+        .superRefine((channel, ctx) => {
+          if (!channel.apiKey) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ["apiKey"],
+              message: "API 凭据不能为空",
+            });
+          }
+
+          if (channel.credentialMode === "ENV" && !isValidEnvKeyName(channel.apiKey)) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ["apiKey"],
+              message: "环境变量模式下只能填写环境变量名，例如 CHANNEL_API_KEY",
+            });
+          }
+        }),
     )
     .min(1),
   feishuBaseUrl: z.string().trim().url(),
@@ -150,7 +164,7 @@ export type SecretStatusItem = {
   configured: boolean;
   required: boolean;
   maskedValue: string;
-  source: "env";
+  source: "env" | "settings";
 };
 
 export type ResolvedFeishuSyncSettings = {
@@ -169,6 +183,26 @@ function maskSecretValue(value: string) {
   }
 
   return `${value.slice(0, 4)}***${value.slice(-4)}`;
+}
+
+function mergeDirectChannelCredentials(
+  incomingChannels: RunningHubChannelConfig[],
+  currentChannels: RunningHubChannelConfig[],
+) {
+  return incomingChannels.map((channel) => {
+    if (channel.credentialMode !== "DIRECT") {
+      return channel;
+    }
+
+    const currentChannel = currentChannels.find((item) => item.code === channel.code);
+    if (!currentChannel || currentChannel.credentialMode !== "DIRECT") {
+      return channel;
+    }
+
+    return channel.apiKey === maskSecretValue(currentChannel.apiKey)
+      ? { ...channel, apiKey: currentChannel.apiKey }
+      : channel;
+  });
 }
 
 export async function getResolvedSiteSettings(): Promise<ResolvedSiteSettings> {
@@ -242,20 +276,29 @@ export async function saveIntegrationSettings(
   input: z.infer<typeof integrationSettingsUpdateSchema>,
 ) {
   const parsed = integrationSettingsUpdateSchema.parse(input);
+  const currentRecord = await readIntegrationSettingsRecord();
+  const currentChannels = normalizeRunningHubChannels(currentRecord?.runninghubChannelsJson, {
+    legacyConcurrencyLimit: currentRecord?.taskMaxConcurrency,
+  });
+  const runninghubBaseUrl =
+    normalizeUrl(parsed.runninghubBaseUrl) ||
+    normalizeUrl(currentRecord?.runninghubBaseUrl) ||
+    env.RUNNINGHUB_BASE_URL;
+  const mergedChannels = mergeDirectChannelCredentials(parsed.runninghubChannels, currentChannels);
 
   return prisma.integrationSettings.upsert({
     where: { id: "default" },
     update: {
-      runninghubBaseUrl: parsed.runninghubBaseUrl,
+      runninghubBaseUrl,
       runninghubDefaultWebappId: parsed.runninghubDefaultWebappId,
-      runninghubChannelsJson: parsed.runninghubChannels,
+      runninghubChannelsJson: mergedChannels as unknown as Prisma.InputJsonValue,
       feishuBaseUrl: parsed.feishuBaseUrl,
     },
     create: {
       id: "default",
-      runninghubBaseUrl: parsed.runninghubBaseUrl,
+      runninghubBaseUrl,
       runninghubDefaultWebappId: parsed.runninghubDefaultWebappId,
-      runninghubChannelsJson: parsed.runninghubChannels,
+      runninghubChannelsJson: mergedChannels as unknown as Prisma.InputJsonValue,
       feishuBaseUrl: parsed.feishuBaseUrl,
     },
   });
@@ -263,15 +306,28 @@ export async function saveIntegrationSettings(
 
 export async function getSecretStatusItems(): Promise<SecretStatusItem[]> {
   const integrationSettings = await getResolvedIntegrationSettings();
-  const channelSecrets = getRunningHubChannelSecretKeys(integrationSettings.runninghubChannels).map(
-    (envKey) => ({
-      envKey,
-      label: `RunningHub Channel Key (${envKey})`,
-      description: "绑定 RunningHub 通道的 API Key，仅用于对应通道的提交、查询和取消。",
-      value: process.env[envKey]?.trim() ?? "",
+  const channelSecrets = integrationSettings.runninghubChannels.map((channel) => {
+    if (channel.credentialMode === "ENV") {
+      const envKey = channel.apiKey;
+      return {
+        envKey,
+        label: `算力通道密钥（${channel.name}）`,
+        description: "当前通道使用环境变量模式，提交、查询和取消任务时会读取对应环境变量。",
+        value: process.env[envKey]?.trim() ?? "",
+        required: true,
+        source: "env" as const,
+      };
+    }
+
+    return {
+      envKey: `channel:${channel.code}`,
+      label: `算力通道密钥（${channel.name}）`,
+      description: "当前通道使用集成设置中的直填 API 凭据，不会展示明文。",
+      value: channel.apiKey,
       required: true,
-    }),
-  );
+      source: "settings" as const,
+    };
+  });
 
   const items = [
     {
@@ -280,6 +336,7 @@ export async function getSecretStatusItems(): Promise<SecretStatusItem[]> {
       description: "负责登录态签名与鉴权校验。",
       value: env.JWT_SECRET,
       required: true,
+      source: "env" as const,
     },
     {
       envKey: "FEISHU_APP_ID",
@@ -287,6 +344,7 @@ export async function getSecretStatusItems(): Promise<SecretStatusItem[]> {
       description: "负责获取 Feishu tenant access token。",
       value: env.FEISHU_APP_ID,
       required: true,
+      source: "env" as const,
     },
     {
       envKey: "FEISHU_APP_SECRET",
@@ -294,13 +352,15 @@ export async function getSecretStatusItems(): Promise<SecretStatusItem[]> {
       description: "与 Feishu App ID 配套使用。",
       value: env.FEISHU_APP_SECRET,
       required: true,
+      source: "env" as const,
     },
     {
       envKey: "RUNNINGHUB_WEBHOOK_SECRET",
-      label: "RunningHub Webhook Secret",
-      description: "生产环境下用于校验 RunningHub 回调签名。",
+      label: "算力回调签名密钥",
+      description: "生产环境下用于校验算力平台回调签名。",
       value: env.RUNNINGHUB_WEBHOOK_SECRET,
       required: false,
+      source: "env" as const,
     },
     ...channelSecrets,
   ];
@@ -312,6 +372,6 @@ export async function getSecretStatusItems(): Promise<SecretStatusItem[]> {
     configured: !isPlaceholderValue(item.value),
     required: item.required,
     maskedValue: maskSecretValue(item.value),
-    source: "env" as const,
+    source: item.source,
   }));
 }

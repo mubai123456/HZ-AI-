@@ -1,9 +1,29 @@
+## 2026-03-26 15:06
+
+- 完成集成设置与对外文案收口：
+  - 算力通道配置改为支持 `直接 API` 和 `环境变量` 两种凭据模式
+  - 历史旧配置里误填的真实 API key 会自动兼容识别为直填模式，不再因为校验失败导致无法保存
+  - 后台读取直填凭据时只返回脱敏值，避免页面再次暴露真实 key
+  - 集成设置页不再展示第三方 Base URL，管理员页面对外统一使用 `算力通道`
+  - 密钥状态页会区分 `环境变量` 与 `集成设置` 两种来源，并按新模式显示状态
+  - 单应用页、任务提交提示、上传报错、后台导航与说明文案已统一去掉供应商品牌名
+- 完成测试与验证：
+  - `npx vitest run src/lib/runninghub-channels.test.ts src/lib/settings.test.ts src/app/api/internal/upload/route.test.ts src/app/api/internal/tasks/submit/route.test.ts src/app/api/internal/admin/settings/integrations/route.test.ts src/app/api/internal/admin/settings/secrets/route.test.ts src/components/app-workbench-client.test.tsx src/components/submit-form.test.tsx`
+  - `npx vitest run src/components/app-form-editor.test.tsx src/components/use-app-tasks.test.tsx`
+  - `npx eslint src/lib/types.ts src/lib/runninghub-channels.ts src/lib/settings.ts src/lib/runninghub.ts src/lib/task-queue.ts src/lib/user-facing-errors.ts src/lib/navigation.ts src/lib/db/admin.ts src/app/api/internal/admin/settings/integrations/route.ts src/app/(workspace)/admin/settings/integrations/page.tsx src/app/(workspace)/admin/settings/secrets/page.tsx src/app/(workspace)/apps/[code]/submit-form.tsx src/components/app-form-editor.tsx src/lib/runninghub-channels.test.ts src/lib/settings.test.ts src/app/api/internal/upload/route.test.ts src/app/api/internal/tasks/submit/route.test.ts src/app/api/internal/admin/settings/integrations/route.test.ts src/app/api/internal/admin/settings/secrets/route.test.ts src/components/app-workbench-client.test.tsx src/components/submit-form.test.tsx src/components/app-form-editor.test.tsx`
+  - `npm run build`
+
+下一步：
+
+- 将本轮集成设置与文案收口改动提交并推送
+- 部署后用真实后台配置一次 `直接 API` 和 `环境变量` 两种通道，做一遍人工回归
+
 ## 2026-03-26 14:10
 
 - 完成单应用提交链路修复：
-  - 上传图片失败时，前端不再显示 RunningHub API key、环境变量名或原始内部报错
-  - `RunningHub` 通道配置新增环境变量名格式校验，避免把真实 key 误存到 `apiKeyEnvName`
-  - 历史非法通道配置会在读取时被过滤，不再继续对前端暴露
+  - 上传图片失败时，前端不再显示算力通道 API key、环境变量名或原始内部报错
+  - 通道配置新增环境变量名格式校验，避免把真实 key 误存到旧的环境变量字段
+  - 历史非法通道配置会在读取时脱敏兼容，不再继续对前端暴露
   - 提交任务接口现在会返回任务快照和提交状态：`RUNNING / QUEUED / FAILED`
   - 缺少可用通道、缺少 key、应用映射缺失等不可恢复问题会直接反馈为失败，不再静默排队重试
   - 单应用工作台提交后会立即把新任务插入右侧“全站任务”列表并选中，不再只依赖 SSE
@@ -14,7 +34,7 @@
 
 下一步：
 
-- 用真实单应用页面做一次人工回归：上传图、断开/恢复 RunningHub key、提交成功、提交失败、进入本地队列 3 条路径都走一遍
+- 用真实单应用页面做一次人工回归：上传图、断开/恢复算力通道 key、提交成功、提交失败、进入本地队列 3 条路径都走一遍
 - 评估是否把其他用户可见路由里的第三方原始错误也统一切到同一套安全错误映射
 
 ## 2026-03-25 21:44
@@ -171,12 +191,12 @@
 
 ## 2026-03-25 23:25
 
-- 完成 RunningHub 单应用模板导入语义修正：
+- 完成单应用模板导入语义修正：
   - `fieldData` 中带选项元数据的节点会自动识别为下拉框
   - 下拉选项显示文案优先使用 `description`，提交值保持使用 `index/value`
   - 字段显示名称优先从 `description` 提取人话标题，不再默认暴露 `aspectRatio`、`resolution`、`channel`
   - 长描述采用“短标题 + 完整说明”策略，标题更短，说明区保留完整原文
-- 更新了 RunningHub 样本应用语义：
+- 更新了样本应用语义：
   - `设置比例`
   - `分辨率`
   - `第三方/官方切换`
@@ -190,5 +210,5 @@
 
 下一步：
 
-- 用真实 RunningHub API 示例再次走一遍“导入 -> 保存 -> 前台打开”人工回归
+- 用真实 API 示例再次走一遍“导入 -> 保存 -> 前台打开”人工回归
 - 如需让图片字段也展示完整辅助说明，再决定是否补一个轻量说明区而不是把长文案塞进标题

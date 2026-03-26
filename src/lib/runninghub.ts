@@ -95,9 +95,12 @@ async function resolveAuthConfig(auth?: RunningHubAuthConfig): Promise<RunningHu
     throw new Error("No RunningHub channel configured");
   }
 
-  const apiKey = process.env[defaultChannel.apiKeyEnvName]?.trim() ?? "";
+  const apiKey =
+    defaultChannel.credentialMode === "DIRECT"
+      ? defaultChannel.apiKey.trim()
+      : process.env[defaultChannel.apiKey]?.trim() ?? "";
   if (!apiKey) {
-    throw new Error(`Missing RunningHub API key: ${defaultChannel.apiKeyEnvName}`);
+    throw new Error(`Missing RunningHub API key: ${defaultChannel.apiKey}`);
   }
 
   return {

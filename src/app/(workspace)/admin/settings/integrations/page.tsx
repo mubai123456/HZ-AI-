@@ -12,7 +12,8 @@ function createDraftChannel(index: number): RunningHubChannelConfig {
   return {
     code: `channel-${index}`,
     name: `通道 ${index}`,
-    apiKeyEnvName: `RUNNINGHUB_API_KEY_${index}`,
+    credentialMode: "DIRECT",
+    apiKey: "",
     concurrencyLimit: 5,
     priority: index,
     enabled: true,
@@ -20,7 +21,6 @@ function createDraftChannel(index: number): RunningHubChannelConfig {
 }
 
 export default function IntegrationSettingsPage() {
-  const [runninghubBaseUrl, setRunninghubBaseUrl] = useState("");
   const [runninghubDefaultWebappId, setRunninghubDefaultWebappId] = useState("");
   const [runninghubChannels, setRunninghubChannels] = useState<RunningHubChannelConfig[]>([]);
   const [feishuBaseUrl, setFeishuBaseUrl] = useState("");
@@ -42,7 +42,6 @@ export default function IntegrationSettingsPage() {
         return data;
       })
       .then((data) => {
-        setRunninghubBaseUrl(data.runninghubBaseUrl ?? "");
         setRunninghubDefaultWebappId(data.runninghubDefaultWebappId ?? "");
         setRunninghubChannels(data.runninghubChannels ?? []);
         setFeishuBaseUrl(data.feishuBaseUrl ?? "");
@@ -77,7 +76,6 @@ export default function IntegrationSettingsPage() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          runninghubBaseUrl,
           runninghubDefaultWebappId,
           runninghubChannels,
           feishuBaseUrl,
@@ -103,7 +101,6 @@ export default function IntegrationSettingsPage() {
     feishuAppToken,
     feishuBaseUrl,
     feishuTableId,
-    runninghubBaseUrl,
     runninghubChannels,
     runninghubDefaultWebappId,
     syncMapping,
@@ -113,7 +110,7 @@ export default function IntegrationSettingsPage() {
     <PageTemplate
       eyebrow="集成设置"
       title="集成设置"
-      description="把 RunningHub 调度、飞书连接和字段映射收敛到同一入口。"
+      description="把算力通道调度、飞书连接和字段映射收敛到同一入口。"
       contentClassName="mx-auto max-w-6xl space-y-6"
       action={
         <button
@@ -140,9 +137,9 @@ export default function IntegrationSettingsPage() {
       <section className="rounded-[24px] border border-slate-200 bg-white p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold text-slate-950">RunningHub</h2>
+            <h2 className="text-sm font-semibold text-slate-950">算力通道</h2>
             <p className="mt-1 text-sm text-slate-500">
-              API Key 继续只放环境变量。这里配置全局 Base URL、默认 WebApp ID 和多通道调度参数。
+              这里配置默认 WebApp ID、多通道调度参数，以及每个通道的 API 凭据录入方式。
             </p>
           </div>
           <button
@@ -159,17 +156,8 @@ export default function IntegrationSettingsPage() {
           </button>
         </div>
 
-        <div className="mt-5 grid gap-4 md:grid-cols-3">
-          <label className="block md:col-span-2">
-            <span className="text-xs uppercase tracking-[0.16em] text-slate-400">Base URL</span>
-            <input
-              type="text"
-              value={runninghubBaseUrl}
-              onChange={(event) => setRunninghubBaseUrl(event.target.value)}
-              className="mt-1 w-full rounded-[12px] border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-mono text-slate-700 outline-none focus:border-slate-500"
-            />
-          </label>
-          <label className="block">
+        <div className="mt-5 grid gap-4 md:grid-cols-2">
+          <label className="block md:max-w-[280px]">
             <span className="text-xs uppercase tracking-[0.16em] text-slate-400">默认 WebApp ID</span>
             <input
               type="text"
@@ -186,7 +174,7 @@ export default function IntegrationSettingsPage() {
               key={`${channel.code}-${index}`}
               className="rounded-[20px] border border-slate-200 bg-slate-50 p-4"
             >
-              <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr_1fr_140px_140px]">
+              <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr_1.2fr_140px_140px]">
                 <label className="block">
                   <span className="text-xs uppercase tracking-[0.16em] text-slate-400">名称</span>
                   <input
@@ -206,15 +194,44 @@ export default function IntegrationSettingsPage() {
                   />
                 </label>
                 <label className="block">
-                  <span className="text-xs uppercase tracking-[0.16em] text-slate-400">API Key Env</span>
+                  <span className="text-xs uppercase tracking-[0.16em] text-slate-400">API 凭据</span>
+                  <div className="mt-1 inline-flex rounded-full border border-slate-200 bg-white p-1 text-xs font-medium text-slate-500">
+                    <button
+                      type="button"
+                      onClick={() => updateChannel(index, { credentialMode: "DIRECT" })}
+                      className={`rounded-full px-3 py-1 ${
+                        channel.credentialMode === "DIRECT"
+                          ? "bg-slate-900 text-white"
+                          : "text-slate-500"
+                      }`}
+                    >
+                      直接 API
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateChannel(index, { credentialMode: "ENV" })}
+                      className={`rounded-full px-3 py-1 ${
+                        channel.credentialMode === "ENV"
+                          ? "bg-slate-900 text-white"
+                          : "text-slate-500"
+                      }`}
+                    >
+                      环境变量
+                    </button>
+                  </div>
                   <input
                     type="text"
-                    value={channel.apiKeyEnvName}
+                    value={channel.apiKey}
                     onChange={(event) =>
-                      updateChannel(index, { apiKeyEnvName: event.target.value })
+                      updateChannel(index, { apiKey: event.target.value })
                     }
                     className="mt-1 w-full rounded-[12px] border border-slate-300 bg-white px-3 py-2 text-sm font-mono text-slate-700 outline-none focus:border-slate-500"
                   />
+                  <p className="mt-1 text-xs leading-5 text-slate-400">
+                    {channel.credentialMode === "ENV"
+                      ? "填写环境变量名，例如 CHANNEL_API_KEY。"
+                      : "可直接填写该通道使用的 API Key，页面不会回显明文。"}
+                  </p>
                 </label>
                 <label className="block">
                   <span className="text-xs uppercase tracking-[0.16em] text-slate-400">并发上限</span>

@@ -31,7 +31,7 @@ describe("internal task submit route", () => {
       taskId: "task-1",
       taskNo: "PENDING-WB-000002",
       submissionState: "QUEUED",
-      message: "任务已进入本地队列，等待派发到 RunningHub。",
+      message: "任务已进入本地队列，等待派发到算力通道。",
     });
     getTaskByIdMock.mockResolvedValue({
       id: "task-1",
@@ -95,6 +95,6 @@ describe("internal task submit route", () => {
 
     expect(response.status).toBe(500);
     expect(data.error).not.toContain("a5fa88f5502f4fc0820a4e9f0c32855e");
-    expect(data.error).toContain("RunningHub");
+    expect(data.error).toContain("算力通道");
   });
 });

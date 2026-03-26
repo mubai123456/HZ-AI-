@@ -25,7 +25,7 @@ describe("admin secrets settings route", () => {
     getSecretStatusItemsMock.mockResolvedValue([
       {
         envKey: "RUNNINGHUB_API_KEY",
-        label: "RunningHub API Key",
+        label: "算力通道密钥（标准通道）",
         configured: true,
       },
     ]);
