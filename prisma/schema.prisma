@@ -299,6 +299,8 @@ model PromptTemplateRecentUse {
 
 model FeishuSettings {
   id             String   @id @default("default")
+  feishuAppId    String   @default("")
+  feishuAppSecret String  @default("")
   feishuAppToken String   @default("")
   feishuTableId  String   @default("")
   columnMappings Json     @default("[]")

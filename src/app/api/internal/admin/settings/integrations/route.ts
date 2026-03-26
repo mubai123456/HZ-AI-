@@ -35,6 +35,26 @@ function maskStoredCredential(value: string) {
   return `${value.slice(0, 4)}***${value.slice(-4)}`;
 }
 
+function preserveMaskedSecret(
+  inputValue: string | undefined,
+  currentValue: string,
+  fallbackValue = "",
+) {
+  if (inputValue === undefined) {
+    return "";
+  }
+
+  if (currentValue && inputValue === maskStoredCredential(currentValue)) {
+    return currentValue;
+  }
+
+  if (!currentValue && fallbackValue && inputValue === maskStoredCredential(fallbackValue)) {
+    return "";
+  }
+
+  return inputValue;
+}
+
 export async function GET() {
   const session = await getCurrentSession();
   if (!session || session.role !== "ADMIN") {
@@ -71,6 +91,10 @@ export async function GET() {
             : channel.apiKey,
       })),
       feishuBaseUrl: integrationSettings.feishuBaseUrl,
+      feishuAppId: feishuSettings.feishuAppId,
+      feishuAppSecret: feishuSettings.feishuAppSecret
+        ? maskStoredCredential(feishuSettings.feishuAppSecret)
+        : "",
       feishuAppToken: resolvedFeishu.target.appToken,
       feishuTableId: resolvedFeishu.target.tableId,
       columnMappings: mappingRecordToEntries(
@@ -140,18 +164,30 @@ export async function PUT(request: Request) {
         allowedSourceKeys: sharedSourceKeys,
       }),
     );
+    const currentFeishuSettings = await prisma.feishuSettings.findUnique({
+      where: { id: "default" },
+    });
+    const preservedFeishuAppSecret = preserveMaskedSecret(
+      parsed.feishuAppSecret,
+      currentFeishuSettings?.feishuAppSecret ?? "",
+      env.FEISHU_APP_SECRET,
+    );
 
     await saveIntegrationSettings(parsed);
 
     await prisma.feishuSettings.upsert({
       where: { id: "default" },
       update: {
+        feishuAppId: parsed.feishuAppId,
+        feishuAppSecret: preservedFeishuAppSecret,
         feishuAppToken: parsed.feishuAppToken,
         feishuTableId: parsed.feishuTableId,
         columnMappings: normalizedMappings,
       },
       create: {
         id: "default",
+        feishuAppId: parsed.feishuAppId,
+        feishuAppSecret: preservedFeishuAppSecret,
         feishuAppToken: parsed.feishuAppToken,
         feishuTableId: parsed.feishuTableId,
         columnMappings: normalizedMappings,
@@ -177,7 +213,13 @@ export async function PUT(request: Request) {
               : channel.apiKey,
         })),
         feishuBaseUrl: latestIntegrationSettings.feishuBaseUrl,
-        ...latestFeishuSettings,
+        feishuAppId: latestFeishuSettings.feishuAppId,
+        feishuAppSecret: latestFeishuSettings.feishuAppSecret
+          ? maskStoredCredential(latestFeishuSettings.feishuAppSecret)
+          : "",
+        feishuAppToken: latestFeishuSettings.feishuAppToken,
+        feishuTableId: latestFeishuSettings.feishuTableId,
+        columnMappings: latestFeishuSettings.columnMappings,
       },
       backfill,
     });

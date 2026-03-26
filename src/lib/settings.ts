@@ -143,6 +143,8 @@ export const integrationSettingsUpdateSchema = z.object({
     )
     .min(1),
   feishuBaseUrl: z.string().trim().url(),
+  feishuAppId: z.string().trim().default(""),
+  feishuAppSecret: z.string().trim().default(""),
   feishuAppToken: z.string().trim(),
   feishuTableId: z.string().trim(),
   columnMappings: z.unknown().optional(),
@@ -168,6 +170,8 @@ export type SecretStatusItem = {
 };
 
 export type ResolvedFeishuSyncSettings = {
+  feishuAppId: string;
+  feishuAppSecret: string;
   feishuAppToken: string;
   feishuTableId: string;
   columnMappings: unknown;
@@ -240,6 +244,8 @@ export async function getResolvedFeishuSyncSettings(): Promise<ResolvedFeishuSyn
   const record = await readFeishuSettingsRecord();
 
   return {
+    feishuAppId: normalizeText(record?.feishuAppId) || env.FEISHU_APP_ID,
+    feishuAppSecret: normalizeText(record?.feishuAppSecret) || env.FEISHU_APP_SECRET,
     feishuAppToken: normalizeText(record?.feishuAppToken) || env.FEISHU_APP_TOKEN,
     feishuTableId: normalizeText(record?.feishuTableId) || env.FEISHU_TABLE_ID,
     columnMappings: record?.columnMappings ?? [],
@@ -306,6 +312,10 @@ export async function saveIntegrationSettings(
 
 export async function getSecretStatusItems(): Promise<SecretStatusItem[]> {
   const integrationSettings = await getResolvedIntegrationSettings();
+  const feishuSettingsRecord = await readFeishuSettingsRecord();
+  const resolvedFeishuSettings = await getResolvedFeishuSyncSettings();
+  const feishuAppIdFromSettings = normalizeText(feishuSettingsRecord?.feishuAppId);
+  const feishuAppSecretFromSettings = normalizeText(feishuSettingsRecord?.feishuAppSecret);
   const channelSecrets = integrationSettings.runninghubChannels.map((channel) => {
     if (channel.credentialMode === "ENV") {
       const envKey = channel.apiKey;
@@ -342,17 +352,21 @@ export async function getSecretStatusItems(): Promise<SecretStatusItem[]> {
       envKey: "FEISHU_APP_ID",
       label: "Feishu App ID",
       description: "负责获取 Feishu tenant access token。",
-      value: env.FEISHU_APP_ID,
+      value: resolvedFeishuSettings.feishuAppId,
       required: true,
-      source: "env" as const,
+      source:
+        feishuAppIdFromSettings && !isPlaceholderValue(feishuAppIdFromSettings) ? "settings" : "env",
     },
     {
       envKey: "FEISHU_APP_SECRET",
       label: "Feishu App Secret",
       description: "与 Feishu App ID 配套使用。",
-      value: env.FEISHU_APP_SECRET,
+      value: resolvedFeishuSettings.feishuAppSecret,
       required: true,
-      source: "env" as const,
+      source:
+        feishuAppSecretFromSettings && !isPlaceholderValue(feishuAppSecretFromSettings)
+          ? "settings"
+          : "env",
     },
     {
       envKey: "RUNNINGHUB_WEBHOOK_SECRET",
@@ -372,6 +386,6 @@ export async function getSecretStatusItems(): Promise<SecretStatusItem[]> {
     configured: !isPlaceholderValue(item.value),
     required: item.required,
     maskedValue: maskSecretValue(item.value),
-    source: item.source,
+    source: item.source as SecretStatusItem["source"],
   }));
 }

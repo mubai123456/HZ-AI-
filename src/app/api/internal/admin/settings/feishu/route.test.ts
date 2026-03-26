@@ -26,9 +26,10 @@ vi.mock("@/lib/feishu-sync-jobs", () => ({
 
 vi.mock("@/lib/env", () => ({
   env: {
+    FEISHU_APP_ID: "env-app-id",
+    FEISHU_APP_SECRET: "env-app-secret",
     FEISHU_APP_TOKEN: "env-app-token",
     FEISHU_TABLE_ID: "env-table-id",
-    FEISHU_APP_SECRET: "env-secret",
   },
 }));
 
@@ -37,6 +38,7 @@ import { GET, PUT } from "@/app/api/internal/admin/settings/feishu/route";
 describe("admin feishu settings route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    findUniqueMock.mockResolvedValue(null);
   });
 
   it("returns effective env defaults when the db settings are missing", async () => {
@@ -48,6 +50,8 @@ describe("admin feishu settings route", () => {
 
     expect(response.status).toBe(200);
     expect(data).toEqual({
+      feishuAppId: "env-app-id",
+      feishuAppSecret: "env-***cret",
       feishuAppToken: "env-app-token",
       feishuTableId: "env-table-id",
       columnMappings: [],
@@ -58,6 +62,8 @@ describe("admin feishu settings route", () => {
     getCurrentSessionMock.mockResolvedValue({ sub: "admin-1", role: "ADMIN" });
     upsertMock.mockResolvedValue({
       id: "default",
+      feishuAppId: "db-app-id",
+      feishuAppSecret: "db-app-secret",
       feishuAppToken: "db-app-token",
       feishuTableId: "db-table-id",
       columnMappings: [
@@ -77,6 +83,8 @@ describe("admin feishu settings route", () => {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          feishuAppId: "db-app-id",
+          feishuAppSecret: "db-app-secret",
           feishuAppToken: "db-app-token",
           feishuTableId: "db-table-id",
           columnMappings: [
@@ -94,6 +102,8 @@ describe("admin feishu settings route", () => {
     expect(upsertMock).toHaveBeenCalledWith({
       where: { id: "default" },
       update: {
+        feishuAppId: "db-app-id",
+        feishuAppSecret: "db-app-secret",
         feishuAppToken: "db-app-token",
         feishuTableId: "db-table-id",
         columnMappings: [
@@ -104,6 +114,8 @@ describe("admin feishu settings route", () => {
       },
       create: {
         id: "default",
+        feishuAppId: "db-app-id",
+        feishuAppSecret: "db-app-secret",
         feishuAppToken: "db-app-token",
         feishuTableId: "db-table-id",
         columnMappings: [

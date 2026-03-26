@@ -24,6 +24,8 @@ export default function IntegrationSettingsPage() {
   const [runninghubDefaultWebappId, setRunninghubDefaultWebappId] = useState("");
   const [runninghubChannels, setRunninghubChannels] = useState<RunningHubChannelConfig[]>([]);
   const [feishuBaseUrl, setFeishuBaseUrl] = useState("");
+  const [feishuAppId, setFeishuAppId] = useState("");
+  const [feishuAppSecret, setFeishuAppSecret] = useState("");
   const [feishuAppToken, setFeishuAppToken] = useState("");
   const [feishuTableId, setFeishuTableId] = useState("");
   const [syncMapping, setSyncMapping] = useState<FeishuColumnMappingEntry[]>([]);
@@ -45,6 +47,8 @@ export default function IntegrationSettingsPage() {
         setRunninghubDefaultWebappId(data.runninghubDefaultWebappId ?? "");
         setRunninghubChannels(data.runninghubChannels ?? []);
         setFeishuBaseUrl(data.feishuBaseUrl ?? "");
+        setFeishuAppId(data.feishuAppId ?? "");
+        setFeishuAppSecret(data.feishuAppSecret ?? "");
         setFeishuAppToken(data.feishuAppToken ?? "");
         setFeishuTableId(data.feishuTableId ?? "");
         setSyncMapping(data.columnMappings ?? []);
@@ -79,6 +83,8 @@ export default function IntegrationSettingsPage() {
           runninghubDefaultWebappId,
           runninghubChannels,
           feishuBaseUrl,
+          feishuAppId,
+          feishuAppSecret,
           feishuAppToken,
           feishuTableId,
           columnMappings: syncMapping,
@@ -98,6 +104,8 @@ export default function IntegrationSettingsPage() {
       setSaving(false);
     }
   }, [
+    feishuAppId,
+    feishuAppSecret,
     feishuAppToken,
     feishuBaseUrl,
     feishuTableId,
@@ -278,16 +286,34 @@ export default function IntegrationSettingsPage() {
       <section className="rounded-[24px] border border-slate-200 bg-white p-6">
         <h2 className="text-sm font-semibold text-slate-950">飞书基础连接</h2>
         <p className="mt-1 text-sm text-slate-500">
-          App ID 与 App Secret 仍然只在环境变量里维护，这里只管理基础地址和同步目标。
+          这里统一维护基础地址、应用凭据和同步目标；已保存的密钥会以脱敏形式展示。
         </p>
 
-        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-6">
           <label className="block xl:col-span-2">
             <span className="text-xs uppercase tracking-[0.16em] text-slate-400">Feishu Base URL</span>
             <input
               type="text"
               value={feishuBaseUrl}
               onChange={(event) => setFeishuBaseUrl(event.target.value)}
+              className="mt-1 w-full rounded-[12px] border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-mono text-slate-700 outline-none focus:border-slate-500"
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs uppercase tracking-[0.16em] text-slate-400">App ID</span>
+            <input
+              type="text"
+              value={feishuAppId}
+              onChange={(event) => setFeishuAppId(event.target.value)}
+              className="mt-1 w-full rounded-[12px] border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-mono text-slate-700 outline-none focus:border-slate-500"
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs uppercase tracking-[0.16em] text-slate-400">App Secret</span>
+            <input
+              type="text"
+              value={feishuAppSecret}
+              onChange={(event) => setFeishuAppSecret(event.target.value)}
               className="mt-1 w-full rounded-[12px] border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-mono text-slate-700 outline-none focus:border-slate-500"
             />
           </label>

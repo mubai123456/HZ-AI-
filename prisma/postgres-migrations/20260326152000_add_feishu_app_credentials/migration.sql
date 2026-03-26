@@ -1,0 +1,3 @@
+ALTER TABLE "FeishuSettings"
+ADD COLUMN "feishuAppId" TEXT NOT NULL DEFAULT '',
+ADD COLUMN "feishuAppSecret" TEXT NOT NULL DEFAULT '';

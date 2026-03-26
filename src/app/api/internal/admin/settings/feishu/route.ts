@@ -10,6 +10,38 @@ import {
 import { prisma } from "@/lib/prisma";
 import { getCurrentSession } from "@/lib/session";
 
+function maskStoredCredential(value: string) {
+  if (!value) {
+    return "";
+  }
+
+  if (value.length <= 8) {
+    return `${value.slice(0, 1)}***${value.slice(-1)}`;
+  }
+
+  return `${value.slice(0, 4)}***${value.slice(-4)}`;
+}
+
+function preserveMaskedSecret(
+  inputValue: string | undefined,
+  currentValue: string,
+  fallbackValue = "",
+) {
+  if (inputValue === undefined) {
+    return "";
+  }
+
+  if (currentValue && inputValue === maskStoredCredential(currentValue)) {
+    return currentValue;
+  }
+
+  if (!currentValue && fallbackValue && inputValue === maskStoredCredential(fallbackValue)) {
+    return "";
+  }
+
+  return inputValue;
+}
+
 export async function GET() {
   const session = await getCurrentSession();
   if (!session || session.role !== "ADMIN") {
@@ -30,6 +62,10 @@ export async function GET() {
   });
 
   return NextResponse.json({
+    feishuAppId: settings?.feishuAppId?.trim() || env.FEISHU_APP_ID,
+    feishuAppSecret: settings?.feishuAppSecret?.trim()
+      ? maskStoredCredential(settings.feishuAppSecret.trim())
+      : maskStoredCredential(env.FEISHU_APP_SECRET),
     feishuAppToken: resolved.target.appToken,
     feishuTableId: resolved.target.tableId,
     columnMappings: mappingRecordToEntries(resolved.globalMapping),
@@ -43,21 +79,33 @@ export async function PUT(request: Request) {
   }
 
   const body = await request.json();
-  const { feishuAppToken, feishuTableId, columnMappings } = body;
+  const { feishuAppId, feishuAppSecret, feishuAppToken, feishuTableId, columnMappings } = body;
   const normalizedMappings = mappingRecordToEntries(
     normalizeFeishuColumnMappings(columnMappings),
   );
 
   try {
+    const currentSettings = await prisma.feishuSettings.findUnique({
+      where: { id: "default" },
+    });
+    const preservedFeishuAppSecret = preserveMaskedSecret(
+      feishuAppSecret,
+      currentSettings?.feishuAppSecret ?? "",
+      env.FEISHU_APP_SECRET,
+    );
     const settings = await prisma.feishuSettings.upsert({
       where: { id: "default" },
       update: {
+        feishuAppId: feishuAppId ?? "",
+        feishuAppSecret: preservedFeishuAppSecret,
         feishuAppToken: feishuAppToken ?? "",
         feishuTableId: feishuTableId ?? "",
         columnMappings: normalizedMappings,
       },
       create: {
         id: "default",
+        feishuAppId: feishuAppId ?? "",
+        feishuAppSecret: preservedFeishuAppSecret,
         feishuAppToken: feishuAppToken ?? "",
         feishuTableId: feishuTableId ?? "",
         columnMappings: normalizedMappings,

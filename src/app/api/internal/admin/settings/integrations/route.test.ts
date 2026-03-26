@@ -5,6 +5,7 @@ const {
   getResolvedIntegrationSettingsMock,
   getResolvedFeishuSyncSettingsMock,
   saveIntegrationSettingsMock,
+  findUniqueMock,
   upsertMock,
   backfillMock,
   resolveFeishuSyncConfigMock,
@@ -15,6 +16,7 @@ const {
   getResolvedIntegrationSettingsMock: vi.fn(),
   getResolvedFeishuSyncSettingsMock: vi.fn(),
   saveIntegrationSettingsMock: vi.fn(),
+  findUniqueMock: vi.fn(),
   upsertMock: vi.fn(),
   backfillMock: vi.fn(),
   resolveFeishuSyncConfigMock: vi.fn(),
@@ -38,6 +40,7 @@ vi.mock("@/lib/settings", () => ({
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     feishuSettings: {
+      findUnique: findUniqueMock,
       upsert: upsertMock,
     },
   },
@@ -55,9 +58,10 @@ vi.mock("@/lib/feishu-sync", () => ({
 
 vi.mock("@/lib/env", () => ({
   env: {
+    FEISHU_APP_ID: "env-app-id",
     FEISHU_APP_TOKEN: "env-app-token",
     FEISHU_TABLE_ID: "env-table-id",
-    FEISHU_APP_SECRET: "env-secret",
+    FEISHU_APP_SECRET: "env-app-secret",
   },
 }));
 
@@ -66,6 +70,7 @@ import { GET, PUT } from "@/app/api/internal/admin/settings/integrations/route";
 describe("admin integrations settings route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    findUniqueMock.mockResolvedValue(null);
   });
 
   it("returns merged integration settings", async () => {
@@ -86,6 +91,8 @@ describe("admin integrations settings route", () => {
       feishuBaseUrl: "https://open.feishu.cn",
     });
     getResolvedFeishuSyncSettingsMock.mockResolvedValue({
+      feishuAppId: "db-app-id",
+      feishuAppSecret: "db-app-secret",
       feishuAppToken: "db-app-token",
       feishuTableId: "db-table-id",
       columnMappings: [{ taskField: "taskNo", feishuColumn: "Task Number" }],
@@ -105,6 +112,8 @@ describe("admin integrations settings route", () => {
     expect(response.status).toBe(200);
     expect(data.runninghubBaseUrl).toBeUndefined();
     expect(data.runninghubChannels).toHaveLength(1);
+    expect(data.feishuAppId).toBe("db-app-id");
+    expect(data.feishuAppSecret).toBe("db-a***cret");
     expect(data.feishuAppToken).toBe("db-app-token");
     expect(data.columnMappings).toEqual([{ taskField: "taskNo", feishuColumn: "Task Number" }]);
   });
@@ -128,6 +137,8 @@ describe("admin integrations settings route", () => {
       feishuBaseUrl: "https://open.feishu.cn",
     });
     getResolvedFeishuSyncSettingsMock.mockResolvedValue({
+      feishuAppId: "",
+      feishuAppSecret: "",
       feishuAppToken: "",
       feishuTableId: "",
       columnMappings: [],
@@ -185,6 +196,8 @@ describe("admin integrations settings route", () => {
       feishuBaseUrl: "https://open.feishu.cn",
     });
     getResolvedFeishuSyncSettingsMock.mockResolvedValue({
+      feishuAppId: "db-app-id",
+      feishuAppSecret: "db-app-secret",
       feishuAppToken: "db-app-token",
       feishuTableId: "db-table-id",
       columnMappings: [
@@ -221,6 +234,8 @@ describe("admin integrations settings route", () => {
             },
           ],
           feishuBaseUrl: "https://open.feishu.cn",
+          feishuAppId: "db-app-id",
+          feishuAppSecret: "db-app-secret",
           feishuAppToken: "db-app-token",
           feishuTableId: "db-table-id",
           columnMappings: [
@@ -256,6 +271,8 @@ describe("admin integrations settings route", () => {
         },
       ],
       feishuBaseUrl: "https://open.feishu.cn",
+      feishuAppId: "db-app-id",
+      feishuAppSecret: "db-app-secret",
       feishuAppToken: "db-app-token",
       feishuTableId: "db-table-id",
       columnMappings: [

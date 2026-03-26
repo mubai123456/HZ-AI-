@@ -12,8 +12,7 @@
  *   { taskNo: "任务ID", status: "任务状态", providerResultUrl: "结果链接" }
  */
 
-import { env } from "@/lib/env";
-import { getResolvedIntegrationSettings } from "@/lib/settings";
+import { getResolvedFeishuSyncSettings, getResolvedIntegrationSettings } from "@/lib/settings";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -52,23 +51,38 @@ export interface SyncMapping {
 
 // ─── Token Management ────────────────────────────────────────────────────────
 
-let cachedToken: { token: string; expiresAt: number } | null = null;
+let cachedToken: { token: string; expiresAt: number; cacheKey: string } | null = null;
 
 async function getTenantAccessToken(): Promise<string> {
+  const [integrationSettings, feishuSettings] = await Promise.all([
+    getResolvedIntegrationSettings(),
+    getResolvedFeishuSyncSettings(),
+  ]);
+  const appId = feishuSettings.feishuAppId.trim();
+  const appSecret = feishuSettings.feishuAppSecret.trim();
+  const cacheKey = `${integrationSettings.feishuBaseUrl}::${appId}::${appSecret}`;
+
   // Return cached token if still valid (with 60s buffer)
-  if (cachedToken && Date.now() < cachedToken.expiresAt - 60_000) {
+  if (
+    cachedToken &&
+    cachedToken.cacheKey === cacheKey &&
+    Date.now() < cachedToken.expiresAt - 60_000
+  ) {
     return cachedToken.token;
   }
 
-  const integrationSettings = await getResolvedIntegrationSettings();
+  if (!appId || !appSecret) {
+    throw new Error("Feishu app credentials are not configured");
+  }
+
   const response = await fetch(
     `${integrationSettings.feishuBaseUrl}/open-apis/auth/v3/tenant_access_token/internal`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        app_id: env.FEISHU_APP_ID,
-        app_secret: env.FEISHU_APP_SECRET,
+        app_id: appId,
+        app_secret: appSecret,
       }),
     }
   );
@@ -86,6 +100,7 @@ async function getTenantAccessToken(): Promise<string> {
   cachedToken = {
     token: data.tenant_access_token,
     expiresAt: Date.now() + data.expire * 1000,
+    cacheKey,
   };
 
   return cachedToken.token;

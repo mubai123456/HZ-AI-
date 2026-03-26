@@ -1,4 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const { integrationFindUniqueMock, feishuFindUniqueMock } = vi.hoisted(() => ({
+  integrationFindUniqueMock: vi.fn(),
+  feishuFindUniqueMock: vi.fn(),
+}));
 
 vi.mock("@/lib/env", () => ({
   env: {
@@ -17,7 +22,14 @@ vi.mock("@/lib/env", () => ({
 }));
 
 vi.mock("@/lib/prisma", () => ({
-  prisma: {},
+  prisma: {
+    integrationSettings: {
+      findUnique: integrationFindUniqueMock,
+    },
+    feishuSettings: {
+      findUnique: feishuFindUniqueMock,
+    },
+  },
 }));
 
 vi.mock("@/lib/prisma-runtime-diagnostics", () => ({
@@ -25,9 +37,15 @@ vi.mock("@/lib/prisma-runtime-diagnostics", () => ({
   logPrismaRuntimeDiagnostic: vi.fn(),
 }));
 
-import { integrationSettingsUpdateSchema } from "@/lib/settings";
+import { getResolvedFeishuSyncSettings, integrationSettingsUpdateSchema } from "@/lib/settings";
 
 describe("integrationSettingsUpdateSchema", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    integrationFindUniqueMock.mockResolvedValue(null);
+    feishuFindUniqueMock.mockResolvedValue(null);
+  });
+
   it("accepts direct API credentials in admin settings", () => {
     const parsed = integrationSettingsUpdateSchema.parse({
       runninghubDefaultWebappId: "webapp-1",
@@ -43,6 +61,8 @@ describe("integrationSettingsUpdateSchema", () => {
         },
       ],
       feishuBaseUrl: "https://open.feishu.cn",
+      feishuAppId: "",
+      feishuAppSecret: "",
       feishuAppToken: "",
       feishuTableId: "",
     });
@@ -68,11 +88,33 @@ describe("integrationSettingsUpdateSchema", () => {
         },
       ],
       feishuBaseUrl: "https://open.feishu.cn",
+      feishuAppId: "",
+      feishuAppSecret: "",
       feishuAppToken: "",
       feishuTableId: "",
     });
 
     expect(result.success).toBe(false);
     expect(result.error.issues[0]?.message).toBe("API 凭据不能为空");
+  });
+
+  it("resolves Feishu app credentials from saved settings before env fallbacks", async () => {
+    feishuFindUniqueMock.mockResolvedValue({
+      feishuAppId: "cli_saved_app_id",
+      feishuAppSecret: "cli_saved_app_secret",
+      feishuAppToken: "saved_table_app_token",
+      feishuTableId: "saved_table_id",
+      columnMappings: [],
+    });
+
+    const resolved = await getResolvedFeishuSyncSettings();
+
+    expect(resolved).toEqual({
+      feishuAppId: "cli_saved_app_id",
+      feishuAppSecret: "cli_saved_app_secret",
+      feishuAppToken: "saved_table_app_token",
+      feishuTableId: "saved_table_id",
+      columnMappings: [],
+    });
   });
 });

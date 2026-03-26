@@ -1,3 +1,24 @@
+## 2026-03-26 15:49
+
+- 完成飞书同步链路排查与修复：
+  - 定位到任务已提交但未同步飞书的根因是：飞书鉴权仍然只读取环境变量中的 `FEISHU_APP_ID / FEISHU_APP_SECRET`
+  - 集成设置页之前只允许配置基础地址、`App Token`、`Table ID`，导致页面看似配齐，实际无法换取 tenant access token
+  - 已为飞书设置新增后台可维护的 `App ID`、`App Secret`
+  - 飞书 SDK 现在会优先读取后台保存的应用凭据，再回退环境变量
+  - 已补上脱敏回显与“保存时保留原密钥”逻辑，避免管理员页面把明文 secret 回显或把脱敏值误写回数据库
+  - 密钥状态页现在会正确反映飞书应用凭据来自 `环境变量` 还是 `集成设置`
+  - 新增 Prisma 迁移：为 `FeishuSettings` 表补充 `feishuAppId`、`feishuAppSecret`
+- 完成测试与验证：
+  - `npx vitest run src/lib/settings.test.ts src/app/api/internal/admin/settings/feishu/route.test.ts src/app/api/internal/admin/settings/integrations/route.test.ts src/lib/feishu-sync.test.ts`
+  - `npx eslint src/lib/settings.ts src/lib/settings.test.ts src/lib/feishu.ts src/app/api/internal/admin/settings/feishu/route.ts src/app/api/internal/admin/settings/feishu/route.test.ts src/app/api/internal/admin/settings/integrations/route.ts src/app/api/internal/admin/settings/integrations/route.test.ts src/app/(workspace)/admin/settings/integrations/page.tsx`
+  - `npx prisma generate`
+  - `npm run build`
+
+下一步：
+
+- 提交、推送并部署这轮飞书同步修复
+- 上线后用真实任务再走一遍“提交 -> 飞书落表 -> 成功后更新状态”人工回归
+
 ## 2026-03-26 15:06
 
 - 完成集成设置与对外文案收口：
