@@ -16,6 +16,7 @@ export type AuditAction = "UPLOAD" | "COMPLETE" | "CLAIM" | "RESET" | "OFF_SHELF
 export type PromptTemplateScopeMode = "GLOBAL" | "LIMITED";
 export type PromptTemplateMediaType = "IMAGE" | "VIDEO";
 export type ChannelCredentialMode = "DIRECT" | "ENV";
+export type ImageMirrorMode = "none" | "horizontal" | "vertical";
 
 export type InputFieldType = "image" | "textarea" | "select";
 
@@ -191,6 +192,8 @@ export interface TaskRecord {
   providerErrorMessage?: string;
   syncErrorMessage?: string;
   prompt: string;
+  promptTemplateName?: string | null;
+  hasPromptTemplate?: boolean;
   estimatedPriceFenSnapshot?: number | null;
   estimatedPriceLabel?: string | null;
   params: Record<string, string>;

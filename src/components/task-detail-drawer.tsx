@@ -109,6 +109,10 @@ export function TaskDetailDrawer({
         { label: "来源状态", value: task.providerStatus },
       ]
     : [];
+  const promptSourceItems = [
+    task?.promptTemplateName ? { label: "已选模板", value: task.promptTemplateName } : null,
+    task?.prompt ? { label: promptLabel, value: task.prompt } : null,
+  ].filter((item): item is { label: string; value: string } => Boolean(item?.value));
 
   return (
     <div className="fixed inset-0 z-[65] bg-slate-950/35 backdrop-blur-sm" onClick={onClose}>
@@ -199,11 +203,16 @@ export function TaskDetailDrawer({
                   />
                 </div>
 
-                {task.prompt ? (
+                {promptSourceItems.length > 0 ? (
                   <div className="space-y-2">
-                    <p className="text-xs uppercase tracking-[0.16em] text-slate-400">{promptLabel}</p>
-                    <div className="rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-4 text-sm leading-7 text-slate-700">
-                      {task.prompt}
+                    <p className="text-xs uppercase tracking-[0.16em] text-slate-400">提示词来源</p>
+                    <div className="space-y-3">
+                      {promptSourceItems.map((item) => (
+                        <div key={item.label} className="rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-4">
+                          <p className="text-xs uppercase tracking-[0.16em] text-slate-400">{item.label}</p>
+                          <p className="mt-2 text-sm leading-7 text-slate-700">{item.value}</p>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 ) : null}

@@ -76,15 +76,17 @@ describe("ResultsPanel", () => {
       />,
     );
 
-    expect(screen.getByText("结果区")).toBeInTheDocument();
-    expect(screen.getByText("当前任务结果")).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "结果" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("tab", { name: "案例" })).toHaveAttribute("aria-selected", "false");
     expect(screen.getByRole("button", { name: "下载当前图片" })).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "查看当前图片" })).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "查看当前图片" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "放大查看" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "复制任务 ID" })).toBeInTheDocument();
-    expect(screen.getAllByText("任务 ID：TASK-001")).toHaveLength(2);
-    expect(screen.getByText("参考图")).toBeInTheDocument();
+    expect(screen.getByText("任务 ID：TASK-001")).toBeInTheDocument();
+    expect(screen.getByText("提示词来源")).toBeInTheDocument();
+    expect(screen.getByText("本次提示词")).toBeInTheDocument();
+    expect(screen.getByText("本次输入")).toBeInTheDocument();
+    expect(screen.getByText("展开")).toBeInTheDocument();
     expect(screen.queryByText("https://example.com/reference-1.png")).not.toBeInTheDocument();
     expect(screen.queryByText("https://example.com/reference-2.png")).not.toBeInTheDocument();
   });
@@ -112,14 +114,15 @@ describe("ResultsPanel", () => {
       />,
     );
 
-    expect(screen.getByText("结果 1 / 2")).toBeInTheDocument();
+    expect(screen.getByText("1 / 2")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "直接下载多张" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "下载全部 ZIP" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Result 1" })).toHaveAttribute("src", "https://example.com/result-1.png");
+
+    fireEvent.click(screen.getByRole("button", { name: "下一张结果" }));
+
+    expect(screen.getByText("2 / 2")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Result 2" })).toHaveAttribute("src", "/assets/task-1/result-2.png");
-
-    fireEvent.click(screen.getByRole("button", { name: "查看结果 2" }));
-
-    expect(screen.getByText("结果 2 / 2")).toBeInTheDocument();
   });
 
   it("switches between result and case tabs inside the unified result area", () => {
@@ -132,14 +135,14 @@ describe("ResultsPanel", () => {
     );
 
     expect(screen.queryByTestId("leading-case-panel")).not.toBeInTheDocument();
-    expect(screen.getByText("当前任务结果")).toBeInTheDocument();
+    expect(screen.getByText("提示词来源")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "案例" }));
 
     expect(screen.getByRole("tab", { name: "案例" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByTestId("leading-case-panel")).toBeInTheDocument();
     expect(screen.getByText("案例内容")).toBeInTheDocument();
-    expect(screen.queryByText("当前任务结果")).not.toBeInTheDocument();
+    expect(screen.queryByText("提示词来源")).not.toBeInTheDocument();
   });
 
   it("keeps the case tab available even before a task is selected", () => {
@@ -153,8 +156,8 @@ describe("ResultsPanel", () => {
 
     expect(screen.getByRole("tab", { name: "结果" })).toHaveAttribute("aria-selected", "true");
     expect(screen.queryByTestId("leading-case-panel")).not.toBeInTheDocument();
-    expect(screen.getByText("结果区")).toBeInTheDocument();
-    expect(screen.getByText("先在左侧填写参考图、Prompt 和关键参数，提交后这里会自动显示最新任务结果。")).toBeInTheDocument();
+    expect(screen.getByText("等待结果返回")).toBeInTheDocument();
+    expect(screen.getByText("先提交任务，这里会直接显示最新结果。")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "案例" }));
 

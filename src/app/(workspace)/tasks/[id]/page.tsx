@@ -32,6 +32,10 @@ export default async function TaskDetailPage({
 
   const showInputs = task.inputAssets.length > 0 || Boolean(task.prompt) || Object.keys(task.params).length > 0;
   const showOwner = isAdmin || !task.isSharedResult;
+  const promptSourceItems = [
+    task.promptTemplateName ? { label: "已选模板", value: task.promptTemplateName } : null,
+    task.prompt ? { label: "主提示词", value: task.prompt } : null,
+  ].filter((item): item is { label: string; value: string } => Boolean(item?.value));
 
   const summaryMetrics = [
     { label: "站内编号", value: task.siteTaskNo },
@@ -111,9 +115,14 @@ export default async function TaskDetailPage({
                     <p className="mt-3 text-sm text-slate-400">暂无输入素材</p>
                   )}
 
-                  {task.prompt ? (
-                    <div className="mt-4 rounded-[22px] border border-slate-200 bg-slate-50 p-5 text-sm leading-7 text-slate-600">
-                      {task.prompt}
+                  {promptSourceItems.length > 0 ? (
+                    <div className="mt-4 space-y-3">
+                      {promptSourceItems.map((item) => (
+                        <div key={item.label} className="rounded-[22px] border border-slate-200 bg-slate-50 p-5">
+                          <p className="text-xs uppercase tracking-[0.16em] text-slate-400">{item.label}</p>
+                          <p className="mt-3 text-sm leading-7 text-slate-600">{item.value}</p>
+                        </div>
+                      ))}
                     </div>
                   ) : null}
 

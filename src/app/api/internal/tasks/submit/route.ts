@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 
-import { getTaskById } from "@/lib/db/tasks";
 import { submitNewTask } from "@/lib/task-queue";
 import { getCurrentSession } from "@/lib/session";
 import { sanitizeUserFacingError } from "@/lib/user-facing-errors";
@@ -30,12 +29,7 @@ export async function POST(request: Request) {
       userId: session.sub,
     });
 
-    const task = await getTaskById(result.taskId, {
-      role: session.role,
-      userId: session.sub,
-    });
-
-    return NextResponse.json({ ok: true, ...result, task });
+    return NextResponse.json({ ok: true, ...result });
   } catch (err) {
     console.error(`[tasks/submit] Error:`, err);
     return NextResponse.json({ error: sanitizeUserFacingError(err, "submit") }, { status: 500 });

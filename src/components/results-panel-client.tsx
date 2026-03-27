@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { ImageLightbox } from "@/components/image-lightbox";
 import { ResultsPanel } from "@/components/results-panel";
-import type { TaskRecord } from "@/lib/types";
+import type { ImageMirrorMode, TaskRecord } from "@/lib/types";
 
 interface Props {
   task: TaskRecord | null;
@@ -21,8 +21,29 @@ export function ResultsPanelClient({
   canReuseTask = true,
   leadingContent,
 }: Props) {
+  return (
+    <ResultsPanelClientContent
+      key={task?.id ?? "empty-task"}
+      task={task}
+      onRefreshTasks={onRefreshTasks}
+      onReuseTask={onReuseTask}
+      canReuseTask={canReuseTask}
+      leadingContent={leadingContent}
+    />
+  );
+}
+
+function ResultsPanelClientContent({
+  task,
+  onRefreshTasks,
+  onReuseTask,
+  canReuseTask = true,
+  leadingContent,
+}: Props) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [lightboxAssets, setLightboxAssets] = useState<Array<{ id: string; name: string; url: string }>>([]);
+  const [lightboxMirrorEnabled, setLightboxMirrorEnabled] = useState(false);
+  const [mirrorMode, setMirrorMode] = useState<ImageMirrorMode>("none");
 
   const handlePoll = async () => {
     if (!task?.id) {
@@ -39,9 +60,14 @@ export function ResultsPanelClient({
     }
   };
 
-  const openLightbox = (assets: Array<{ id: string; name: string; url: string }>, index: number) => {
+  const openLightbox = (
+    assets: Array<{ id: string; name: string; url: string }>,
+    index: number,
+    options?: { enableMirrorControls?: boolean },
+  ) => {
     setLightboxAssets(assets);
     setLightboxIndex(index);
+    setLightboxMirrorEnabled(Boolean(options?.enableMirrorControls));
   };
 
   return (
@@ -51,6 +77,8 @@ export function ResultsPanelClient({
         onPoll={handlePoll}
         onOpenLightbox={openLightbox}
         onReuseTask={onReuseTask}
+        mirrorMode={mirrorMode}
+        onMirrorModeChange={setMirrorMode}
         canReuseTask={canReuseTask}
         leadingContent={leadingContent}
       />
@@ -58,7 +86,19 @@ export function ResultsPanelClient({
         <ImageLightbox
           assets={lightboxAssets}
           initialIndex={lightboxIndex}
-          onClose={() => setLightboxIndex(null)}
+          initialMirrorMode={lightboxMirrorEnabled ? mirrorMode : "none"}
+          enableMirrorControls={lightboxMirrorEnabled}
+          buildDownloadUrl={
+            lightboxMirrorEnabled && task
+              ? (asset) => `/api/internal/tasks/${task.id}/downloads/assets/${asset.id}`
+              : undefined
+          }
+          onMirrorModeChange={lightboxMirrorEnabled ? setMirrorMode : undefined}
+          onClose={() => {
+            setLightboxIndex(null);
+            setLightboxMirrorEnabled(false);
+            setMirrorMode("none");
+          }}
         />
       ) : null}
     </>

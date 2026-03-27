@@ -9,6 +9,7 @@ import {
   type FeishuColumnMappingRecord,
 } from "@/lib/feishu-sync-mapping";
 import { prisma } from "@/lib/prisma";
+import { extractPromptTemplateSnapshot } from "@/lib/task-prompt-source";
 import { buildRunningHubSubmitRequest, buildNodeInfoList, type NodeInfo } from "@/lib/runninghub";
 
 export const FEISHU_SYNC_FIELDS = FEISHU_SHARED_SYNC_FIELDS;
@@ -66,12 +67,6 @@ type BuildTaskSyncPayloadInput = {
 type FeishuSubmitPreview = {
   requestBody: ReturnType<typeof buildRunningHubSubmitRequest>;
   source: "stored" | "reconstructed";
-};
-
-type PromptTemplateSnapshot = {
-  id: string | null;
-  name: string | null;
-  templatePrompt: string | null;
 };
 
 type AppFormField = {
@@ -230,27 +225,6 @@ function extractStoredSubmitPreview(resultJson: unknown): FeishuSubmitPreview | 
       instanceType: normalizeText(stored.instanceType) ?? "default",
       usePersonalQueue: normalizeText(stored.usePersonalQueue) ?? "false",
     } as ReturnType<typeof buildRunningHubSubmitRequest>,
-  };
-}
-
-function extractPromptTemplateSnapshot(resultJson: unknown): PromptTemplateSnapshot | null {
-  if (!isPlainObject(resultJson) || !isPlainObject(resultJson.promptTemplate)) {
-    return null;
-  }
-
-  const snapshot = resultJson.promptTemplate;
-  const id = normalizeText(snapshot.id);
-  const name = normalizeText(snapshot.name);
-  const templatePrompt = normalizeText(snapshot.templatePrompt);
-
-  if (!id && !name && !templatePrompt) {
-    return null;
-  }
-
-  return {
-    id: id ?? null,
-    name: name ?? null,
-    templatePrompt: templatePrompt ?? null,
   };
 }
 

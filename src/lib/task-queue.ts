@@ -1,5 +1,6 @@
 import path from "node:path";
 
+import { after } from "next/server";
 import type { Prisma, TaskStatus } from "@prisma/client";
 
 import { env } from "@/lib/env";
@@ -35,13 +36,16 @@ import {
   type RunningHubAuthConfig,
 } from "@/lib/runninghub";
 import { createRecord, mapToFeishuFields, updateRecord } from "@/lib/feishu";
+import { formatPriceFen } from "@/lib/money";
 import { getResultsObjectKey, uploadBufferToObjectStorage } from "@/lib/object-storage";
 import { shouldPersistTaskOutputAssets } from "@/lib/task-output-storage";
+import { extractPromptTemplateSnapshot } from "@/lib/task-prompt-source";
+import { buildTaskInputSchema, sortTaskInputAssets } from "@/lib/task-inputs";
 import { getResolvedIntegrationSettings } from "@/lib/settings";
 import { emitTaskUpdate } from "@/lib/sse";
 import { allocateNextSiteTaskNo } from "@/lib/site-task-no";
 import { isPermanentDispatchError, sanitizeUserFacingError } from "@/lib/user-facing-errors";
-import type { TaskSubmissionState } from "@/lib/types";
+import type { AppInputField, TaskRecord, TaskSubmissionState } from "@/lib/types";
 
 const TASK_TIMEOUT_MINUTES = 30;
 const PENDING_TASK_PREFIX = "PENDING-";
@@ -51,8 +55,174 @@ type QueuedTaskForDispatch = Prisma.TaskGetPayload<{
   include: { app: true };
 }>;
 
+type SubmissionTaskWithRelations = Prisma.TaskGetPayload<{
+  include: {
+    app: {
+      select: {
+        id: true;
+        code: true;
+        name: true;
+        formSchemaJson: true;
+        shareResults: true;
+      };
+    };
+    createdBy: {
+      select: {
+        id: true;
+        displayName: true;
+      };
+    };
+    assets: true;
+    syncLogs: true;
+  };
+}>;
+
 function buildPendingTaskNo(siteTaskNo: string) {
   return `${PENDING_TASK_PREFIX}${siteTaskNo}`;
+}
+
+function formatDateTime(date: Date): string {
+  return `${date.toLocaleDateString("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+  })} ${date.toLocaleTimeString("zh-CN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  })}`;
+}
+
+function buildResultSummary(task: {
+  status: TaskStatus;
+  providerErrorMessage: string | null;
+}) {
+  if (task.status === "SUCCEEDED") {
+    return "任务已完成";
+  }
+
+  if (task.status === "FAILED") {
+    return task.providerErrorMessage ?? "任务失败";
+  }
+
+  if (task.status === "RUNNING") {
+    return "任务运行中...";
+  }
+
+  if (task.status === "CANCELLED") {
+    return "任务已取消";
+  }
+
+  return "任务排队中...";
+}
+
+function mapTaskToSubmissionSnapshot(task: SubmissionTaskWithRelations): TaskRecord {
+  const appInputSchema = buildTaskInputSchema(task.app.formSchemaJson as unknown as AppInputField[]);
+  const inputAssets = sortTaskInputAssets(
+    task.assets
+      .filter((asset) => asset.kind === "INPUT")
+      .map((asset) => ({
+        id: asset.id,
+        kind: "INPUT" as const,
+        name: asset.name,
+        url: asset.url ?? "",
+        sourceSlot: asset.sourceSlot ?? undefined,
+      })),
+    appInputSchema,
+  );
+  const promptTemplate = extractPromptTemplateSnapshot(task.resultJson);
+
+  return {
+    id: task.id,
+    siteTaskNo: task.siteTaskNo,
+    taskNo: task.taskNo,
+    appCode: task.app.code,
+    appName: task.app.name,
+    title: task.title ?? task.taskNo,
+    ownerId: task.createdById,
+    ownerName: task.createdBy.displayName,
+    status: task.status,
+    providerStatus: task.providerStatus ?? "PENDING",
+    syncStatus: task.syncStatus ?? undefined,
+    createdAt: formatDateTime(task.createdAt),
+    createdAtIso: task.createdAt.toISOString(),
+    startedAt: task.startedAt ? formatDateTime(task.startedAt) : undefined,
+    startedAtIso: task.startedAt?.toISOString(),
+    completedAt: task.completedAt ? formatDateTime(task.completedAt) : undefined,
+    completedAtIso: task.completedAt?.toISOString(),
+    queuePosition: task.queuePosition ?? undefined,
+    providerTaskId: task.providerTaskId ?? undefined,
+    runninghubChannelCode: task.runninghubChannelCode ?? undefined,
+    runninghubChannelName: task.runninghubChannelName ?? undefined,
+    providerResultUrl: task.providerResultUrl ?? undefined,
+    providerErrorMessage: task.providerErrorMessage ?? undefined,
+    syncErrorMessage: task.syncErrorMessage ?? undefined,
+    prompt: task.prompt ?? "",
+    promptTemplateName: promptTemplate?.name ?? null,
+    hasPromptTemplate: Boolean(promptTemplate),
+    estimatedPriceFenSnapshot: task.estimatedPriceFenSnapshot ?? null,
+    estimatedPriceLabel:
+      task.estimatedPriceFenSnapshot !== null && task.estimatedPriceFenSnapshot !== undefined
+        ? formatPriceFen(task.estimatedPriceFenSnapshot)
+        : null,
+    params: (task.paramsJson as Record<string, string>) ?? {},
+    resultSummary: buildResultSummary(task),
+    resultItems: task.assets
+      .filter((asset) => asset.kind === "OUTPUT")
+      .map((asset) => ({
+        id: asset.id,
+        label: asset.name,
+        url: asset.url ?? "",
+      })),
+    inputAssets,
+    outputAssets: task.assets
+      .filter((asset) => asset.kind === "OUTPUT")
+      .map((asset) => ({
+        id: asset.id,
+        kind: "OUTPUT" as const,
+        name: asset.name,
+        url: asset.url ?? "",
+      })),
+    systemLogs: [task.providerTaskId, task.providerStatus, task.providerErrorMessage].filter(
+      (item): item is string => Boolean(item),
+    ),
+    syncLogs: task.syncLogs.map((log) => ({
+      time: log.createdAt.toLocaleTimeString("zh-CN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      }),
+      message: log.message ?? "",
+      status: log.status,
+    })),
+    usage: task.usageJson as TaskRecord["usage"],
+    appInputSchema,
+  };
+}
+
+async function loadTaskSnapshotForSubmission(taskId: string) {
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    include: {
+      app: {
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          formSchemaJson: true,
+          shareResults: true,
+        },
+      },
+      createdBy: {
+        select: {
+          id: true,
+          displayName: true,
+        },
+      },
+      assets: true,
+      syncLogs: true,
+    },
+  });
+
+  return task ? mapTaskToSubmissionSnapshot(task) : null;
 }
 
 function buildRunningHubAuth(
@@ -913,6 +1083,24 @@ export interface SubmitTaskInput {
   userId: string;
 }
 
+export async function continueTaskSubmission(taskId: string) {
+  await recomputeQueuedTaskPositions();
+  await syncTaskToFeishu(taskId, "create");
+
+  const queuedTask = await prisma.task.findUnique({
+    where: { id: taskId },
+    select: { queuePosition: true },
+  });
+  emitTaskUpdate({
+    taskId,
+    status: "QUEUED",
+    providerStatus: undefined,
+    queuePosition: queuedTask?.queuePosition ?? undefined,
+  });
+
+  await dispatchQueuedTasks();
+}
+
 export async function submitNewTask(
   input: SubmitTaskInput,
 ): Promise<{
@@ -920,6 +1108,7 @@ export async function submitNewTask(
   taskNo: string;
   submissionState: TaskSubmissionState;
   message?: string | null;
+  task: TaskRecord | null;
 }> {
   const { appCode, formData, selectedPromptTemplateId, userId } = input;
 
@@ -975,6 +1164,10 @@ export async function submitNewTask(
   const webhookUrl = `${env.APP_URL}/api/webhook`;
   const submitRequest = buildRunningHubSubmitRequest(nodeInfoList, webhookUrl, submitOptions);
 
+  const queuedCount = await prisma.task.count({
+    where: { status: "QUEUED" },
+  });
+
   const task = await prisma.task.create({
     data: {
       siteTaskNo,
@@ -983,6 +1176,7 @@ export async function submitNewTask(
       createdById: userId,
       status: "QUEUED",
       syncStatus: "PENDING",
+      queuePosition: queuedCount + 1,
       prompt: userPromptValue,
       estimatedPriceFenSnapshot: app.estimatedPriceFen,
       paramsJson: formData as unknown as Record<string, string>,
@@ -1010,51 +1204,28 @@ export async function submitNewTask(
     });
   }
 
-  await recomputeQueuedTaskPositions();
-  await syncTaskToFeishu(task.id, "create");
-  await recomputeQueuedTaskPositions();
-
-  const queuedTask = await prisma.task.findUnique({
-    where: { id: task.id },
-    select: { queuePosition: true },
-  });
   emitTaskUpdate({
     taskId: task.id,
     status: "QUEUED",
     providerStatus: undefined,
-    queuePosition: queuedTask?.queuePosition ?? undefined,
+    queuePosition: task.queuePosition ?? undefined,
   });
 
-  await dispatchQueuedTasks();
-
-  const latestTask = await prisma.task.findUnique({
-    where: { id: task.id },
-    select: {
-      id: true,
-      taskNo: true,
-      status: true,
-      providerTaskId: true,
-      providerErrorMessage: true,
-      queuePosition: true,
-    },
+  after(async () => {
+    try {
+      await continueTaskSubmission(task.id);
+    } catch (error) {
+      console.error(`[task-queue] continue submission failed for ${task.id}:`, error);
+    }
   });
-  if (!latestTask) {
-    throw new Error("Task disappeared after submission");
-  }
 
-  const submissionState: TaskSubmissionState =
-    latestTask.status === "FAILED" ? "FAILED" : latestTask.providerTaskId ? "RUNNING" : "QUEUED";
-  const message =
-    submissionState === "FAILED"
-      ? latestTask.providerErrorMessage ?? "任务提交失败，请稍后重试。"
-      : submissionState === "QUEUED"
-        ? "任务已进入本地队列，等待派发到算力通道。"
-        : "任务已提交到算力通道，结果会自动刷新。";
+  const taskSnapshot = await loadTaskSnapshotForSubmission(task.id);
 
   return {
-    taskId: latestTask.id,
-    taskNo: latestTask.taskNo,
-    submissionState,
-    message,
+    taskId: task.id,
+    taskNo: task.taskNo,
+    submissionState: "QUEUED",
+    message: "任务已创建，正在派发到算力通道。",
+    task: taskSnapshot,
   };
 }

@@ -1,3 +1,30 @@
+## 2026-03-27 15:58
+
+- 完成单应用工作台结果区、输入区与提交链路体验优化：
+  - 左侧输入区改成极简结构，移除大段常驻说明文案
+  - 参考图卡片新增 `查看 / 删除` 操作，删除会同步清理本地预览、上传 URL、file input 和草稿缓存
+  - 任务数据补齐 `promptTemplateName / hasPromptTemplate`，结果区、详情页、抽屉页统一显示 `已选模板 / 本次提示词`
+  - 结果区改成主结果舞台，多图支持主图左右切换，输入参数默认折叠到 `本次输入`
+  - 结果图预览新增 `左右镜像 / 上下镜像`，并支持下载镜像后的当前图片
+  - 提交接口改成“先返回任务快照，再异步继续派发/同步”，减少提交首响应等待时间
+- 新增与调整的关键实现：
+  - 新增 `src/lib/task-prompt-source.ts` 统一提取模板快照
+  - 新增 `src/lib/client-image-download.ts` 处理镜像后当前图下载
+  - 重构 `results-panel`、`results-panel-client`、`image-lightbox`、`task-output-download-actions`
+  - submit route 直接透传 `submitNewTask` 返回的首帧任务快照，不再额外查一次任务详情
+- 完成测试与验证：
+  - `npx vitest run src/components/submit-form.test.tsx src/components/results-panel.test.tsx src/app/api/internal/tasks/submit/route.test.ts src/components/task-output-download-actions.test.tsx src/components/recent-results-panel.test.tsx src/components/admin-tasks-client.test.tsx`
+  - `npx eslint "src/app/(workspace)/apps/[code]/submit-form.tsx" src/components/results-panel.tsx src/components/results-panel-client.tsx src/components/image-lightbox.tsx src/components/task-output-download-actions.tsx src/components/task-detail-drawer.tsx "src/app/(workspace)/tasks/[id]/page.tsx" src/lib/task-queue.ts src/lib/db/tasks.ts src/lib/feishu-sync.ts src/lib/task-prompt-source.ts src/lib/client-image-download.ts src/lib/types.ts src/components/results-panel.test.tsx src/app/api/internal/tasks/submit/route.ts src/app/api/internal/tasks/submit/route.test.ts`
+  - `npm run build`
+- 当前备注：
+  - ESLint 仍保留 2 条 `no-img-element` warning，来自结果主舞台和 lightbox 的原生图片预览；当前不影响构建和功能
+  - `npm run build` 仍会打印既有的 Turbopack NFT tracing warning，来源是下载路由链路对 `next.config.ts` 的追踪，不属于本轮新增问题
+
+下一步：
+
+- 用真实页面做一轮人工回归：参考图查看/删除、多图左右切换、镜像下载、模板提示词展示、提交后秒回
+- 评估是否要把结果区和 lightbox 的原生 `<img>` 进一步收口成统一的受控图片组件
+
 ## 2026-03-26 15:49
 
 - 完成飞书同步链路排查与修复：

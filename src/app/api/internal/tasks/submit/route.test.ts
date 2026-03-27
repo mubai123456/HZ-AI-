@@ -1,9 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getCurrentSessionMock, submitNewTaskMock, getTaskByIdMock } = vi.hoisted(() => ({
+const { getCurrentSessionMock, submitNewTaskMock } = vi.hoisted(() => ({
   getCurrentSessionMock: vi.fn(),
   submitNewTaskMock: vi.fn(),
-  getTaskByIdMock: vi.fn(),
 }));
 
 vi.mock("@/lib/session", () => ({
@@ -12,10 +11,6 @@ vi.mock("@/lib/session", () => ({
 
 vi.mock("@/lib/task-queue", () => ({
   submitNewTask: submitNewTaskMock,
-}));
-
-vi.mock("@/lib/db/tasks", () => ({
-  getTaskById: getTaskByIdMock,
 }));
 
 import { POST } from "@/app/api/internal/tasks/submit/route";
@@ -32,8 +27,7 @@ describe("internal task submit route", () => {
       taskNo: "PENDING-WB-000002",
       submissionState: "QUEUED",
       message: "任务已进入本地队列，等待派发到算力通道。",
-    });
-    getTaskByIdMock.mockResolvedValue({
+      task: {
       id: "task-1",
       siteTaskNo: "WB-000002",
       taskNo: "PENDING-WB-000002",
@@ -55,6 +49,7 @@ describe("internal task submit route", () => {
       outputAssets: [],
       systemLogs: [],
       syncLogs: [],
+      },
     });
 
     const response = await POST(

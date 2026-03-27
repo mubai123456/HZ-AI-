@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { ImageLightbox } from "@/components/image-lightbox";
 import { PromptTemplateModal } from "@/components/prompt-template-modal";
 import type { AppDefinition, AppInputField, TaskRecord, TaskSubmissionResult } from "@/lib/types";
 
@@ -238,6 +239,8 @@ export function SubmitForm({ app, onSubmitSuccess, reuseTaskRequest }: Props) {
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [showAdvancedParams, setShowAdvancedParams] = useState(initialState.showAdvancedParams);
   const [draftHydrated, setDraftHydrated] = useState(false);
+  const [inputPreviewIndex, setInputPreviewIndex] = useState<number | null>(null);
+  const [inputPreviewAssets, setInputPreviewAssets] = useState<Array<{ id: string; name: string; url: string }>>([]);
 
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const imagesRef = useRef<Record<string, LocalImageState>>(initialState.images);
@@ -457,6 +460,61 @@ export function SubmitForm({ app, onSubmitSuccess, reuseTaskRequest }: Props) {
     }
   }, [defaultFormData, draftStorageKey, resetFileInputs]);
 
+  const removeImage = useCallback((fieldKey: string) => {
+    const currentImage = imagesRef.current[fieldKey];
+    revokePreview(currentImage?.preview);
+
+    setImages((current) => {
+      const next = { ...current };
+      delete next[fieldKey];
+      return next;
+    });
+    setUploadedUrls((current) => {
+      const next = { ...current };
+      delete next[fieldKey];
+      return next;
+    });
+    setUploading((current) => {
+      const next = { ...current };
+      delete next[fieldKey];
+      return next;
+    });
+    setSubmitError(null);
+
+    const input = fileInputRefs.current[fieldKey];
+    if (input) {
+      input.value = "";
+    }
+  }, []);
+
+  const openInputPreview = useCallback(
+    (fieldKey: string) => {
+      const assets = imageFields.flatMap((field) => {
+        const image = imagesRef.current[field.key];
+        if (!image?.preview) {
+          return [];
+        }
+
+        return [
+          {
+            id: field.key,
+            name: image.name ?? field.label,
+            url: image.preview,
+          },
+        ];
+      });
+
+      const initialIndex = assets.findIndex((asset) => asset.id === fieldKey);
+      if (assets.length === 0 || initialIndex < 0) {
+        return;
+      }
+
+      setInputPreviewAssets(assets);
+      setInputPreviewIndex(initialIndex);
+    },
+    [imageFields],
+  );
+
   const handleSubmit = useCallback(async () => {
     setSubmitting(true);
     setSubmitError(null);
@@ -571,7 +629,7 @@ export function SubmitForm({ app, onSubmitSuccess, reuseTaskRequest }: Props) {
           {imageFields.length > 0 ? (
             <section className="space-y-3">
               <div className="flex items-start justify-between gap-3">
-                <SectionHeader title="参考图输入" description="三列并排展示，首张图作为主参考图。" />
+                <SectionHeader title="参考图" />
                 <button
                   type="button"
                   onClick={handleClearDraft}
@@ -595,6 +653,8 @@ export function SubmitForm({ app, onSubmitSuccess, reuseTaskRequest }: Props) {
                     }}
                     onPick={() => openFilePicker(field.key)}
                     onChange={(files) => void handleImageSelect(field.key, files)}
+                    onPreview={() => openInputPreview(field.key)}
+                    onDelete={() => removeImage(field.key)}
                   />
                 ))}
               </div>
@@ -604,10 +664,7 @@ export function SubmitForm({ app, onSubmitSuccess, reuseTaskRequest }: Props) {
           {primaryTextarea ? (
             <section className="space-y-3">
               <div className="flex items-start justify-between gap-3">
-                <SectionHeader
-                  title={primaryTextarea.label}
-                  description="先写清核心目标，需要时再套用模板或补充更多参数。"
-                />
+                <SectionHeader title={primaryTextarea.label} />
                 <button
                   type="button"
                   onClick={() => setShowTemplateModal(true)}
@@ -647,15 +704,12 @@ export function SubmitForm({ app, onSubmitSuccess, reuseTaskRequest }: Props) {
                 }
                 className="min-h-[160px] w-full resize-y rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-4 text-sm leading-7 text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
               />
-              <p className="text-[11px] leading-5 text-slate-400">
-                提交后不会清空，方便你继续沿着当前输入做增量微调。
-              </p>
             </section>
           ) : null}
 
           {supplementalTextareaFields.length > 0 ? (
             <section className="space-y-3">
-              <SectionHeader title="补充文本参数" description="这些附加输入会和主提示词一起提交给应用。" />
+              <SectionHeader title="补充文本参数" />
               <div className="space-y-3">
                 {supplementalTextareaFields.map((field) => (
                   <div key={field.key} className="rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-4">
@@ -687,7 +741,7 @@ export function SubmitForm({ app, onSubmitSuccess, reuseTaskRequest }: Props) {
 
           {primarySelectFields.length > 0 ? (
             <section className="space-y-3">
-              <SectionHeader title="关键参数" description="首屏只保留高频参数，低频项收进折叠区。" />
+              <SectionHeader title="关键参数" />
               <div className="grid grid-cols-2 gap-3">
                 {primarySelectFields.map((field) => (
                   <SelectField
@@ -739,7 +793,6 @@ export function SubmitForm({ app, onSubmitSuccess, reuseTaskRequest }: Props) {
           ) : null}
 
           <section className="space-y-3">
-            <SectionHeader title="提交反馈" description="上传、校验和提交状态都会在这里就地显示。" />
             {submitError ? (
               <div className="rounded-[18px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
                 {submitError}
@@ -750,9 +803,9 @@ export function SubmitForm({ app, onSubmitSuccess, reuseTaskRequest }: Props) {
                 {submitSuccess}
               </div>
             ) : null}
-            {!submitError && !submitSuccess ? (
-              <div className="rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
-                {submitting ? "正在创建任务并同步到结果区..." : "确认输入后直接提交，结果会在中间主画布就地更新。"}
+            {submitting && !submitError && !submitSuccess ? (
+              <div className="rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                正在创建任务...
               </div>
             ) : null}
           </section>
@@ -787,15 +840,21 @@ export function SubmitForm({ app, onSubmitSuccess, reuseTaskRequest }: Props) {
           onClose={() => setShowTemplateModal(false)}
         />
       ) : null}
+      {inputPreviewIndex !== null && inputPreviewAssets.length > 0 ? (
+        <ImageLightbox
+          assets={inputPreviewAssets}
+          initialIndex={inputPreviewIndex}
+          onClose={() => setInputPreviewIndex(null)}
+        />
+      ) : null}
     </div>
   );
 }
 
-function SectionHeader({ title, description }: { title: string; description: string }) {
+function SectionHeader({ title }: { title: string }) {
   return (
     <div>
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">{title}</p>
-      <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p>
     </div>
   );
 }
@@ -838,6 +897,8 @@ function ImageUploadField({
   setRef,
   onPick,
   onChange,
+  onPreview,
+  onDelete,
 }: {
   field: AppInputField;
   preview?: LocalImageState;
@@ -846,6 +907,8 @@ function ImageUploadField({
   setRef: (element: HTMLInputElement | null) => void;
   onPick: () => void;
   onChange: (files: FileList | null) => void;
+  onPreview: () => void;
+  onDelete: () => void;
 }) {
   return (
     <div
@@ -874,7 +937,7 @@ function ImageUploadField({
               onPick();
             }
           }}
-          className={`relative block aspect-square w-full cursor-pointer overflow-hidden rounded-[24px] border text-left transition hover:opacity-95 ${
+          className={`group relative block aspect-square w-full cursor-pointer overflow-hidden rounded-[24px] border text-left transition hover:opacity-95 ${
             isPrimary
               ? "border-sky-200 bg-sky-50 ring-1 ring-sky-100"
               : "border-slate-200 bg-slate-50"
@@ -886,7 +949,33 @@ function ImageUploadField({
             <div className="absolute inset-0 flex items-center justify-center bg-slate-950/35 text-sm font-medium text-white">
               上传中...
             </div>
-          ) : null}
+          ) : (
+            <div className="absolute inset-x-2 bottom-2 flex items-center justify-between gap-2 opacity-100 transition md:opacity-0 md:group-hover:opacity-100">
+              <button
+                type="button"
+                aria-label={`preview-image-${field.key}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onPreview();
+                }}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-950/72 text-white backdrop-blur-sm transition hover:bg-slate-950"
+              >
+                <PreviewIcon />
+              </button>
+              <button
+                type="button"
+                aria-label={`delete-image-${field.key}`}
+                disabled={isUploading}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onDelete();
+                }}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-rose-500/90 text-white backdrop-blur-sm transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:bg-rose-300"
+              >
+                <TrashIcon />
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         <button
@@ -913,6 +1002,33 @@ function ImageUploadField({
         </span>
       </div>
     </div>
+  );
+}
+
+function PreviewIcon() {
+  return (
+    <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={1.8}
+        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.27 2.943 9.543 7-1.273 4.057-5.065 7-9.543 7-4.477 0-8.268-2.943-9.542-7Z"
+      />
+      <circle cx="12" cy="12" r="3" strokeWidth={1.8} />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={1.8}
+        d="M4 7h16M10 11v6m4-6v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"
+      />
+    </svg>
   );
 }
 

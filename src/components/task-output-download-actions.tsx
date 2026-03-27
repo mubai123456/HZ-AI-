@@ -2,7 +2,11 @@
 
 import { useState } from "react";
 
-import type { TaskAssetRecord } from "@/lib/types";
+import {
+  downloadAssetFromEndpoint,
+  downloadMirroredAssetFromEndpoint,
+} from "@/lib/client-image-download";
+import type { ImageMirrorMode, TaskAssetRecord } from "@/lib/types";
 
 type DownloadMode = "single" | "multiple" | "archive" | null;
 
@@ -10,35 +14,7 @@ interface TaskOutputDownloadActionsProps {
   taskId: string;
   assets: TaskAssetRecord[];
   currentAssetId?: string | null;
-}
-
-function parseFilenameFromDisposition(disposition: string | null, fallback: string) {
-  if (!disposition) {
-    return fallback;
-  }
-
-  const utf8Match = /filename\*=UTF-8''([^;]+)/i.exec(disposition);
-  if (utf8Match?.[1]) {
-    return decodeURIComponent(utf8Match[1]);
-  }
-
-  const basicMatch = /filename="?([^"]+)"?/i.exec(disposition);
-  if (basicMatch?.[1]) {
-    return basicMatch[1];
-  }
-
-  return fallback;
-}
-
-function triggerBrowserDownload(blob: Blob, filename: string) {
-  const objectUrl = window.URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = objectUrl;
-  anchor.download = filename;
-  document.body.appendChild(anchor);
-  anchor.click();
-  document.body.removeChild(anchor);
-  window.setTimeout(() => window.URL.revokeObjectURL(objectUrl), 1000);
+  mirrorMode?: ImageMirrorMode;
 }
 
 function wait(ms: number) {
@@ -49,6 +25,7 @@ export function TaskOutputDownloadActions({
   taskId,
   assets,
   currentAssetId,
+  mirrorMode = "none",
 }: TaskOutputDownloadActionsProps) {
   const [activeMode, setActiveMode] = useState<DownloadMode>(null);
   const [statusMessage, setStatusMessage] = useState("");
@@ -56,21 +33,6 @@ export function TaskOutputDownloadActions({
 
   const currentAsset =
     assets.find((asset) => asset.id === currentAssetId) ?? assets[0] ?? null;
-
-  async function downloadEndpoint(url: string, fallbackFilename: string) {
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error("download_failed");
-    }
-
-    const blob = await response.blob();
-    const filename = parseFilenameFromDisposition(
-      response.headers.get("content-disposition"),
-      fallbackFilename,
-    );
-
-    triggerBrowserDownload(blob, filename);
-  }
 
   async function handleCurrentDownload() {
     if (!currentAsset) {
@@ -82,10 +44,16 @@ export function TaskOutputDownloadActions({
     setErrorMessage("");
 
     try {
-      await downloadEndpoint(
-        `/api/internal/tasks/${taskId}/downloads/assets/${currentAsset.id}`,
-        currentAsset.name,
-      );
+      const downloadUrl = `/api/internal/tasks/${taskId}/downloads/assets/${currentAsset.id}`;
+      if (mirrorMode === "none") {
+        await downloadAssetFromEndpoint(downloadUrl, currentAsset.name);
+      } else {
+        await downloadMirroredAssetFromEndpoint({
+          url: downloadUrl,
+          fallbackFilename: currentAsset.name,
+          mirrorMode,
+        });
+      }
       setStatusMessage("");
     } catch {
       setErrorMessage("当前图片下载失败，请稍后重试。");
@@ -100,7 +68,7 @@ export function TaskOutputDownloadActions({
     setErrorMessage("");
 
     try {
-      await downloadEndpoint(
+      await downloadAssetFromEndpoint(
         `/api/internal/tasks/${taskId}/downloads/archive`,
         `${taskId}-outputs.zip`,
       );
@@ -126,7 +94,7 @@ export function TaskOutputDownloadActions({
       setStatusMessage(`正在下载 ${index + 1}/${assets.length}`);
 
       try {
-        await downloadEndpoint(
+        await downloadAssetFromEndpoint(
           `/api/internal/tasks/${taskId}/downloads/assets/${asset.id}`,
           asset.name,
         );

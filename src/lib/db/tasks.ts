@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { formatPriceFen } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
+import { extractPromptTemplateSnapshot } from "@/lib/task-prompt-source";
 import { buildTaskInputSchema, sortTaskInputAssets } from "@/lib/task-inputs";
 import { syncTaskToFeishu } from "@/lib/task-queue";
 import type {
@@ -161,6 +162,7 @@ function mapTaskToRecord(
       })),
     appInputSchema,
   );
+  const promptTemplate = extractPromptTemplateSnapshot(task.resultJson);
 
   return {
     id: task.id,
@@ -188,6 +190,8 @@ function mapTaskToRecord(
     providerErrorMessage: task.providerErrorMessage ?? undefined,
     syncErrorMessage: canSeeOperationalFields ? task.syncErrorMessage ?? undefined : undefined,
     prompt: task.prompt ?? "",
+    promptTemplateName: promptTemplate?.name ?? null,
+    hasPromptTemplate: Boolean(promptTemplate),
     estimatedPriceFenSnapshot: task.estimatedPriceFenSnapshot ?? null,
     estimatedPriceLabel:
       task.estimatedPriceFenSnapshot !== null && task.estimatedPriceFenSnapshot !== undefined
